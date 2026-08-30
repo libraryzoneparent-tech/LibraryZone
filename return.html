@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Library Zone — Auto Return & Fees</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <style>
+    :root{--bg:#f3f6fb;--card:#fff;--accent:#2d6cdf;--muted:#666;--danger:#c0392b;--ok:#2e8b57}
+    body{font-family:Inter,system-ui,Arial;margin:24px;background:var(--bg);color:#222}
+    .wrap{max-width:820px;margin:0 auto}
+    header{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+    h1{margin:0;color:var(--accent);font-size:20px}
+    .card{background:var(--card);padding:18px;border-radius:10px;box-shadow:0 8px 30px rgba(10,20,40,0.06)}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+    input{width:100%;padding:10px;border-radius:8px;border:1px solid #e0e6ef;margin-top:6px;font-size:16px}
+    .controls{display:flex;gap:8px;margin-top:12px}
+    button{padding:10px 14px;border-radius:8px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+    button.secondary{background:#fff;color:var(--accent);border:1px solid #d7e1ff}
+    .small{font-size:13px;color:var(--muted);margin-top:8px}
+    .ok{color:var(--ok);font-weight:700}
+    .danger{color:var(--danger);font-weight:700}
+    .notice{margin-top:10px;padding:10px;border-radius:8px;background:#fbfdff}
+    .fees-list{margin-top:12px;border-radius:8px;padding:10px;background:#fff;border:1px solid #eef5ff}
+    .fee-row{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f4f7fb}
+    .fee-row:last-child{border-bottom:none}
+  </style>
+
+  <!-- Firebase SDK: used only to synchronize returned parent books -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <img alt="" style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#2d6cdf,#8fb4ff)">
+      <div>
+        <h1>Quick Return — Auto</h1>
+        <div class="small">Scan a book barcode and it will be returned automatically. Fees for returns are collected and printable.</div>
+      </div>
+      <div style="margin-left:auto">
+        <a href="index.html" style="text-decoration:none"><button class="secondary">Back to app</button></a>
+      </div>
+    </header>
+
+    <div class="card" aria-live="polite">
+      <label for="studentId">Student ID (optional)</label>
+      <input id="studentId" placeholder="Optional. If blank, system finds active borrower for scanned book" autocomplete="off" />
+
+      <label for="barcode" style="margin-top:10px">Scan book barcode</label>
+      <input id="barcode" placeholder="Scan book here (BK0001)" autocomplete="off" />
+
+      <div class="controls">
+        <button id="clearBtn" class="secondary">Clear</button>
+        <button id="printFeesBtn" class="secondary" style="margin-left:auto">Print Fees</button>
+      </div>
+
+      <div id="resultMsg" class="small"></div>
+
+      <div class="fees-list" id="feesList" style="display:none">
+        <strong>Fees collected in this session</strong>
+        <div id="feesRows" style="margin-top:8px"></div>
+        <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center">
+          <div class="small">Total:</div>
+          <div id="feesTotal" style="font-weight:700"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+<script>
+/* --- Keys used by main app --- */
+const LS = {
+  HISTORY: 'lib_history_final',
+  BOOKS: 'lib_books_final',
+  STUDENTS: 'lib_students_final',
+  ADMIN: 'lib_admin_final',
+  PAYMENTS: 'lib_payments_final'
+};
+
+/* --- Firestore synchronization for returned parent books --- */
+const RETURN_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDlX9t7jG5dm2t3XoPts2EAPZ3VBnxxBjI",
+  authDomain: "libraryzoneparent-36d5a.firebaseapp.com",
+  projectId: "libraryzoneparent-36d5a",
+  storageBucket: "libraryzoneparent-36d5a.firebasestorage.app",
+  messagingSenderId: "906159197620",
+  appId: "1:906159197620:web:04b70b5f426e462a4936e1",
+  measurementId: "G-3S0RCHLZJV"
+};
+
+const RETURN_PARENT_COLLECTION = 'parentBorrows';
+let returnFirestoreDb = null;
+let returnFirestoreInitError = null;
+
+try {
+  if (typeof firebase === 'undefined' || !firebase.firestore) {
+    throw new Error('Firebase Firestore SDK did not load.');
+  }
+  const existingApp = firebase.apps && firebase.apps.find(a => a.name === 'libraryzone-return');
+  const returnApp = existingApp || firebase.initializeApp(RETURN_FIREBASE_CONFIG, 'libraryzone-return');
+  returnFirestoreDb = firebase.firestore(returnApp);
+} catch (e) {
+  returnFirestoreInitError = e;
+  console.error('Return-page Firestore initialization failed:', e);
+}
+
+function returnFirestoreErrorText(e){
+  const code = e && e.code ? ` [${e.code}]` : '';
+  return `${e && e.message ? e.message : 'Unknown Firestore error'}${code}`;
+}
+
+/*
+ * Update the exact parent borrowing document created by the main application.
+ * The document ID is txId, so the return is tied to the original borrowing
+ * record instead of creating a second document.
+ */
+async function markParentBookReturnedInFirestore(tx, book, overdueFee){
+  if(!tx || !tx.txId) return { skipped:true, reason:'No transaction ID' };
+
+  if(!returnFirestoreDb){
+    const reason = returnFirestoreInitError
+      ? returnFirestoreErrorText(returnFirestoreInitError)
+      : 'Firestore is not initialized.';
+    console.error('Parent return cannot be synchronized:', reason);
+    return { ok:false, error:reason };
+  }
+
+  const returnDate = tx.returnDate || new Date().toISOString();
+  const barcode = String(tx.barcode || (book && book.barcode) || '');
+
+  try{
+    const ref = returnFirestoreDb.collection(RETURN_PARENT_COLLECTION).doc(String(tx.txId));
+
+    // Merge, rather than replace, so parent portal fields are preserved.
+    await ref.set({
+      txId: String(tx.txId),
+      bookBarcode: barcode,
+      bookTitle: book ? String(book.title || '') : '',
+      bookAuthor: book ? String(book.author || '') : '',
+      returnDate: returnDate,
+      status: 'returned',
+      returned: true,
+      available: true,
+      overdueFee: Number(overdueFee || 0),
+      feePaid: Number(overdueFee || 0) <= 0 ? true : false,
+      updatedAt: new Date().toISOString()
+    }, { merge:true });
+
+    // Verify the update was actually written.
+    const snap = await ref.get();
+    if(!snap.exists) throw new Error('Firestore did not return the updated parent borrowing record.');
+
+    const data = snap.data() || {};
+    if(String(data.returnDate || '') !== String(returnDate)){
+      throw new Error('Firestore returnDate could not be verified.');
+    }
+
+    console.log('Parent book return synchronized with Firestore:', tx.txId);
+    return { ok:true };
+  }catch(e){
+    console.error('Could not update returned parent book in Firestore:', e);
+    return { ok:false, error:returnFirestoreErrorText(e) };
+  }
+}
+
+
+function load(key, fallback){ try{ const v = localStorage.getItem(key); return v ? JSON.parse(v) : fallback } catch(e){ return fallback } }
+function save(key, val){ try{ localStorage.setItem(key, JSON.stringify(val)); } catch(e){} }
+function formatDate(d){ return new Date(d).toLocaleString(); }
+function daysBetween(startISO, endDate = new Date()){ const s = new Date(startISO); const diff = endDate.getTime() - s.getTime(); return Math.floor(diff / (1000*60*60*24)); }
+
+/* compute fee like main app */
+function computeFeeForTx(tx, admin){
+  if(tx.returnDate) return +(tx.overdueFee || 0);
+  const days = daysBetween(tx.borrowDate, new Date());
+  if(days <= admin.maxDays) return 0;
+  const extra = days - admin.maxDays;
+  const weeks = Math.ceil(extra / 7);
+  return +(weeks * admin.weeklyFee).toFixed(2);
+}
+
+/* Find active borrow(s) for a barcode.
+   If studentId provided, prefer that; else choose most recent active tx.
+   Returns { tx, index } or null.
+*/
+function normalizeReturnBarcode(value){
+  return String(value == null ? '' : value).replace(/[\r\n\t]/g,'').trim().toUpperCase();
+}
+function barcodeMatches(a,b){
+  return normalizeReturnBarcode(a) === normalizeReturnBarcode(b);
+}
+
+function findActiveBorrow(history, barcode, studentId){
+  const normalized = normalizeReturnBarcode(barcode);
+  const active = history.filter(h => barcodeMatches(h.barcode, normalized) && !h.returnDate);
+  if(active.length === 0) return null;
+  if(studentId){
+    const exact = active.find(h => String(h.studentId).trim().toUpperCase() === String(studentId).trim().toUpperCase());
+    if(exact) return { tx: exact, index: history.indexOf(exact) };
+  }
+  // choose most recent borrowDate
+  let recent = active[0];
+  for(let i=1;i<active.length;i++){
+    if(new Date(active[i].borrowDate) > new Date(recent.borrowDate)) recent = active[i];
+  }
+  return { tx: recent, index: history.indexOf(recent) };
+}
+
+/* Session-collected fees (only in this page session) */
+let sessionFees = []; // { txId, studentId, barcode, bookTitle, amount, paidAt }
+
+/* UI: show fees list */
+function renderSessionFees(){
+  const container = document.getElementById('feesList');
+  const rows = document.getElementById('feesRows');
+  if(sessionFees.length === 0){ container.style.display = 'none'; rows.innerHTML = ''; document.getElementById('feesTotal').textContent = ''; return; }
+  container.style.display = 'block';
+  let html = '';
+  let total = 0;
+  sessionFees.forEach(f => {
+    html += `<div class="fee-row"><div>${escapeHtml(f.bookTitle)} • ${escapeHtml(f.barcode)}<div class="small">${escapeHtml(f.studentId)}</div></div><div>${f.amount.toFixed(2)}</div></div>`;
+    total += f.amount;
+  });
+  rows.innerHTML = html;
+  document.getElementById('feesTotal').textContent = total.toFixed(2);
+}
+
+/* Basic HTML escaping */
+function escapeHtml(s){ return String(s||'').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"}[c])); }
+
+/* --- Audio feedback using Web Audio API --- */
+let audioCtx = null;
+function ensureAudioContext(){
+  if(!audioCtx){
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    } catch(e){
+      audioCtx = null;
+    }
+  }
+  return audioCtx;
+}
+
+/* success: friendly rising chord / brief sequence */
+function playSuccessSound(){
+  const ctx = ensureAudioContext();
+  if(!ctx) return;
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = 0.0001;
+  master.connect(ctx.destination);
+
+  // ramp up quickly
+  master.gain.exponentialRampToValueAtTime(0.2, now + 0.02);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
+
+  // three rising partials
+  const freqs = [660, 880, 990];
+  freqs.forEach((f, i) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.value = f;
+    g.gain.value = 0;
+    o.connect(g);
+    g.connect(master);
+    o.start(now + i*0.03);
+    g.gain.setValueAtTime(0, now + i*0.03);
+    g.gain.linearRampToValueAtTime(0.12, now + 0.03 + i*0.03);
+    g.gain.linearRampToValueAtTime(0, now + 0.35 + i*0.03);
+    o.stop(now + 0.5 + i*0.03);
+  });
+}
+
+/* error: short descending interval */
+function playErrorSound(){
+  const ctx = ensureAudioContext();
+  if(!ctx) return;
+  const now = ctx.currentTime;
+  const master = ctx.createGain();
+  master.gain.value = 0.0001;
+  master.connect(ctx.destination);
+
+  master.gain.exponentialRampToValueAtTime(0.25, now + 0.01);
+  master.gain.exponentialRampToValueAtTime(0.0001, now + 0.5);
+
+  const freqs = [360, 300, 250];
+  freqs.forEach((f, i) => {
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.type = 'sawtooth';
+    o.frequency.value = f;
+    o.connect(g);
+    g.connect(master);
+    o.start(now + i*0.02);
+    g.gain.setValueAtTime(0, now + i*0.02);
+    g.gain.linearRampToValueAtTime(0.12, now + 0.02 + i*0.01);
+    g.gain.linearRampToValueAtTime(0, now + 0.32 + i*0.01);
+    o.stop(now + 0.36 + i*0.02);
+  });
+}
+
+/* After a successful return with fee>0, record session fee and persist payment record (ledger) */
+function recordPayment(tx, amount){
+  if(amount <= 0) return;
+  // update payments ledger in localStorage
+  const payments = load(LS.PAYMENTS, []);
+  const paymentRecord = {
+    paymentId: 'pay_' + Math.floor(Math.random()*1e9) + '_' + Date.now(),
+    txId: tx.txId || tx._internalTxId || ('tx_' + Math.floor(Math.random()*1e9) + '_' + Date.now()),
+    studentId: tx.studentId,
+    barcode: tx.barcode,
+    amount,
+    paidAt: new Date().toISOString(),
+    note: 'Late fee collected on return (auto-return page)'
+  };
+  payments.push(paymentRecord);
+  save(LS.PAYMENTS, payments);
+
+  // also add to session list for PDF print
+  const books = load(LS.BOOKS, []);
+  const book = books.find(b => b.barcode === tx.barcode) || { title: tx.barcode };
+  sessionFees.push({ txId: paymentRecord.txId, studentId: tx.studentId, barcode: tx.barcode, bookTitle: book.title || tx.barcode, amount, paidAt: paymentRecord.paidAt });
+  renderSessionFees();
+
+  // mark feePaid for that history tx so index.html can show paid status
+  const history = load(LS.HISTORY, []);
+  const idx = history.findIndex(h => String(h.txId || '') === String(tx.txId || '') && h.studentId === tx.studentId && h.barcode === tx.barcode);
+  if(idx !== -1){
+    history[idx].feePaid = true;
+    history[idx].overdueFee = 0;
+    save(LS.HISTORY, history);
+  }
+
+  // emit update marker for other tabs
+  try { localStorage.setItem('lib_history_update_marker', Date.now().toString()); } catch(e){}
+}
+
+/* Perform the automatic return for a scanned barcode */
+async function performAutoReturn(barcode){
+  const barcodeTrim = normalizeReturnBarcode(barcode);
+  if(!barcodeTrim){
+    setResult('No barcode scanned', 'danger');
+    playErrorSound();
+    return;
+    
+  }
+
+  // load data
+  const history = load(LS.HISTORY, []);
+  const books = load(LS.BOOKS, []);
+  const admin = load(LS.ADMIN, { maxDays:14, weeklyFee:5.00 });
+
+  // optional explicit student id
+  const explicitStudent = String(document.getElementById('studentId').value || '').trim();
+
+  // find active borrow
+  const found = findActiveBorrow(history, barcodeTrim, explicitStudent);
+  if(!found){
+    setResult(`No active borrow found for ${barcodeTrim}`, 'danger');
+    playErrorSound();
+    document.getElementById('barcode').value = "";
+    return;
+  }
+  const tx = found.tx;
+  const idx = found.index;
+
+  // compute fee
+  const fee = computeFeeForTx(tx, admin);
+
+  // update transaction (return)
+  tx.returnDate = new Date().toISOString();
+  tx.overdueFee = fee;
+
+  // mark book available
+  const book = books.find(b => barcodeMatches(b.barcode, barcodeTrim));
+  if(book) book.available = true;
+
+  // Synchronize the original parent borrowing document with Firestore.
+  // This updates the existing document rather than creating a new return record.
+  const firestoreResult = await markParentBookReturnedInFirestore(tx, book, fee);
+
+  // Persist local changes too.
+  save(LS.HISTORY, history);
+  save(LS.BOOKS, books);
+
+  if(!firestoreResult.ok && !firestoreResult.skipped){
+    setResult(
+      `Returned locally, but Firestore was not updated: ${firestoreResult.error}`,
+      'danger'
+    );
+    console.error('Return completed locally but Firestore synchronization failed:', firestoreResult.error);
+    playErrorSound();
+  }
+
+  // If there is a fee, record payment immediately and add to session list
+  if(fee > 0){
+    recordPayment(tx, fee);
+    setResult(
+      firestoreResult.ok
+        ? `Returned ${barcodeTrim}. Firestore updated. Fee ${fee.toFixed(2)} collected and added to printable list.`
+        : `Returned ${barcodeTrim} locally. Firestore update failed. Fee ${fee.toFixed(2)} collected locally.`,
+      firestoreResult.ok ? 'danger' : 'danger'
+    );
+  } else {
+    setResult(
+      firestoreResult.ok
+        ? `Returned ${barcodeTrim}. Firestore updated — book is marked returned and available.`
+        : `Returned ${barcodeTrim} locally, but Firestore was not updated.`,
+      firestoreResult.ok ? 'ok' : 'danger'
+    );
+  }
+
+  // play success tone for successful return
+  playSuccessSound();
+
+  // emit update marker so other pages (index.html, history.html) refresh
+  try { localStorage.setItem('lib_history_update_marker', Date.now().toString()); } catch(e){}
+
+  // ready for next scan
+  const bc = document.getElementById('barcode');
+  bc.value = '';
+  bc.focus();
+}
+
+/* result message helper */
+function setResult(msg, kind='info'){
+  const el = document.getElementById('resultMsg');
+  el.textContent = msg;
+  el.className = 'small ' + (kind || 'info');
+}
+
+/* Print a simple PDF (via print dialog) listing all sessionFees */
+function printFeesPdf(){
+  try{
+    if(!Array.isArray(sessionFees) || sessionFees.length === 0){
+      alert('No fees collected in this session to print.');
+      return;
+    }
+
+    // helper: read students list
+    const students = (function(){ try { return JSON.parse(localStorage.getItem('lib_students_final')||'[]'); } catch(e){ return []; } })();
+
+    // Build rows with student name lookup
+    let total = 0;
+    let rows = '';
+    sessionFees.forEach((f) => {
+      const stud = students.find(s => String(s.studentId) === String(f.studentId));
+      const studentName = stud ? (stud.name || f.studentId) : f.studentId;
+      rows += `<tr>
+        <td style="padding:8px;border:1px solid #ddd">${escapeHtml(f.studentId)}</td>
+        <td style="padding:8px;border:1px solid #ddd">${escapeHtml(studentName)}</td>
+        <td style="padding:8px;border:1px solid #ddd">${escapeHtml(f.bookTitle)}</td>
+        <td style="padding:8px;border:1px solid #ddd">${escapeHtml(f.barcode)}</td>
+        <td style="padding:8px;border:1px solid #ddd;text-align:right">${Number(f.amount).toFixed(2)}</td>
+      </tr>`;
+      total += Number(f.amount) || 0;
+    });
+
+    const html = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8"/>
+          <title>Late Fees Receipt</title>
+          <style>
+            body{font-family:Arial,Helvetica,sans-serif;padding:18px;color:#222}
+            h1{color:#2d6cdf}
+            table{width:100%;border-collapse:collapse;margin-top:12px}
+            th,td{padding:8px;border:1px solid #ddd}
+            th{background:#f7fbff;text-align:left}
+            .right{text-align:right}
+            .total{font-weight:700}
+          </style>
+        </head>
+        <body>
+          <h1>Late Fees Receipt</h1>
+          <div>Date: ${new Date().toLocaleString()}</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Student ID</th>
+                <th>Student Name</th>
+                <th>Book</th>
+                <th>Barcode</th>
+                <th class="right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows}
+              <tr>
+                <td colspan="4" class="right total">Total</td>
+                <td class="right total">${total.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+        </body>
+      </html>
+    `;
+
+    // open in new window; if blocked, open in same window as fallback
+    let w = null;
+    try { w = window.open('', '_blank', 'noopener'); } catch(e){ w = null; }
+    if(!w){
+      // fallback: replace current document content (user must navigate back)
+      const printWin = window.open();
+      printWin.document.open();
+      printWin.document.write(html);
+      printWin.document.close();
+      printWin.focus();
+      setTimeout(()=> printWin.print(), 300);
+      return;
+    }
+
+    w.document.open();
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(()=>{ w.print(); }, 250);
+  } catch(err){
+    console.error('printFeesPdf error', err);
+    alert('Printing failed: ' + (err && err.message ? err.message : 'unknown error'));
+  }
+}
+/* Esc key clears last scanned barcode */
+document.getElementById('clearBtn').addEventListener('click', () => {
+  document.getElementById('barcode').value = '';
+  document.getElementById('studentId').value = '';
+  setResult('', 'info');
+});
+
+/* Print fees button */
+document.getElementById('printFeesBtn').addEventListener('click', () => {
+  printFeesPdf();
+});
+
+/* Auto-scan capture: treat fast characters as barcode and auto-return on Enter */
+(function(){
+  let buf = '';
+  let t = null;
+  const TIMEOUT = 60;
+  window.addEventListener('keydown', (e) => {
+    // if user is focused in an input and typing, allow normal typing.
+    const active = document.activeElement;
+    const isInputActive = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+    if(e.key === 'Enter'){
+      if(t){ clearTimeout(t); t = null; }
+      if(buf){
+        const scanned = normalizeReturnBarcode(buf);
+        buf = '';
+        // If barcode input focused, do nothing special (user may want manual flow)
+        if(active && active.id === 'barcode'){
+          // allow default: insert and keep focus
+          // but also perform auto return if input has a value
+          // get value from input (in case scanner wrote there)
+          const val = normalizeReturnBarcode(document.getElementById('barcode').value) || scanned;
+          performAutoReturn(normalizeReturnBarcode(val));
+        } else {
+          // perform auto return with scanned code
+          performAutoReturn(normalizeReturnBarcode(scanned));
+        }
+      } else if(isInputActive && active.id === 'barcode'){
+        // user pressed Enter while input focused
+        const val = normalizeReturnBarcode(document.getElementById('barcode').value);
+        if(val) performAutoReturn(normalizeReturnBarcode(val));
+      }
+      return;
+    }
+    if(e.key.length === 1){
+      // collect char
+      buf += e.key;
+      if(t) clearTimeout(t);
+      t = setTimeout(()=>{
+        buf = '';
+        t = null;
+      }, TIMEOUT);
+    }
+  }, true);
+})();
+
+/* Storage listener: respond to other tabs updating history/books so UI stays in sync */
+window.addEventListener('storage', (e) => {
+  if(!e.key) return;
+  if([LS.HISTORY, LS.BOOKS, LS.STUDENTS, LS.ADMIN, LS.PAYMENTS, 'lib_history_update_marker'].includes(e.key)){
+    // nothing heavy: just inform user that data changed elsewhere
+    setResult('Data updated elsewhere; this page remains ready for scanning.', 'info');
+  }
+});
+
+/* Focus input when loaded */
+document.getElementById('barcode').focus();
+
+</script>
+</body>
+</html>
