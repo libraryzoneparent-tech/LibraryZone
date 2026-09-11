@@ -222,7 +222,7 @@ const LS_KEYS = {
    PostgreSQL is now the authoritative database for library data.
    Local Storage is retained only as a fast/offline cache for the UI and session state.
 */
-const LZ_API_BASE = 'https://libraryzone-api.onrender.com';
+const LZ_API_BASE = window.LZ_API_BASE || 'https://libraryzone-api.onrender.com';
 const POSTGRES_KEYS = new Set([LS_KEYS.STUDENTS, LS_KEYS.BOOKS, LS_KEYS.HISTORY, LS_KEYS.ADMIN, 'libraryzone_librarian_card']);
 let postgresReady = false;
 let postgresLoadPromise = null;
@@ -967,7 +967,16 @@ function levelBadge(level){
 }
 
 /* ---------- Lists & UI rendering ---------- */
+function refreshParentSelector(){
+  const select=document.getElementById('adminAddStudentParent');
+  if(!select) return;
+  const current=String(select.value||'');
+  const parents=getStudents().filter(s=>String(s.role||'').toLowerCase()==='parent' && s.portalAuthUid);
+  select.innerHTML='<option value="">No parent assigned</option>'+parents.map(p=>`<option value="${escapeHtml(String(p.studentId))}">${escapeHtml(String(p.name||p.studentId))} — ${escapeHtml(String(p.portalEmail||'No email'))}</option>`).join('');
+  if(parents.some(p=>String(p.studentId)===current)) select.value=current;
+}
 function renderStudentList(){
+  refreshParentSelector();
   const container=document.getElementById('studentsList');
   if(!container) return;
   const searchEl=document.getElementById('searchStudent');
@@ -1846,7 +1855,7 @@ async function importLocalStorageFile(file){
 /* ---------- Event Listeners ---------- */
 document.getElementById('localStorageImportFile').addEventListener('change',e=>{ if(e.target.files&&e.target.files[0]) importLocalStorageFile(e.target.files[0]); e.target.value=''; });
 if(document.getElementById('reg_role')) document.getElementById('reg_role').addEventListener('change',toggleRegistrationFee);
-if(document.getElementById('adminAddStudentRole')) document.getElementById('adminAddStudentRole').addEventListener('change',()=>{ const p=document.getElementById('adminAddStudentRole').value==='parent'; document.getElementById('adminAddStudentWeeklyFee').style.display=p?'block':'none'; const e=document.getElementById('adminAddParentEmail'); const pw=document.getElementById('adminAddParentPassword'); if(e)e.style.display=p?'block':'none'; if(pw)pw.style.display=p?'block':'none'; });
+if(document.getElementById('adminAddStudentRole')) document.getElementById('adminAddStudentRole').addEventListener('change',()=>{ const p=document.getElementById('adminAddStudentRole').value==='parent'; const parent=document.getElementById('adminAddStudentParent'); if(parent) parent.style.display=p?'none':'block'; document.getElementById('adminAddStudentWeeklyFee').style.display=p?'block':'none'; const e=document.getElementById('adminAddParentEmail'); const pw=document.getElementById('adminAddParentPassword'); if(e)e.style.display=p?'block':'none'; if(pw)pw.style.display=p?'block':'none'; if(!p) refreshParentSelector(); });
 
 document.getElementById('activateBtn').addEventListener('click', validateLicenseOnline);
 document.getElementById('demoBtn').addEventListener('click', demoGenerate);
@@ -1962,6 +1971,7 @@ async function adminAddStudent() {
   const gradeEl = document.getElementById('adminAddStudentGrade');
   const msgEl = document.getElementById('adminAddStudentMsg');
   const portalMsg = document.getElementById('adminParentPortalMsg');
+  const parentEl = document.getElementById('adminAddStudentParent');
   const id = (idEl && idEl.value || '').trim();
   const name = (nameEl && nameEl.value || '').trim();
   const grade = (gradeEl && gradeEl.value || '').trim();
@@ -1973,12 +1983,19 @@ async function adminAddStudent() {
   const weeklyBorrowFee = role === 'parent' ? Math.max(0, Number(feeEl && feeEl.value || 0) || 0) : 0;
   const portalEmail = role === 'parent' ? String(emailEl && emailEl.value || '').trim() : '';
   const portalPassword = role === 'parent' ? String(pwEl && pwEl.value || '') : '';
+  const parentId = role === 'student' ? String(parentEl && parentEl.value || '').trim() : '';
   msgEl.style.color=''; msgEl.textContent=''; if(portalMsg) portalMsg.textContent='';
   if(!id || !name){ msgEl.style.color='var(--danger)'; msgEl.textContent='Student ID and name are required.'; playErrorSound(); return; }
+  if(role==='student' && parentId){
+    const parent=getStudents().find(s=>String(s.studentId)===parentId && String(s.role||'').toLowerCase()==='parent');
+    if(!parent){ msgEl.style.color='var(--danger)'; msgEl.textContent='Selected parent was not found.'; playErrorSound(); return; }
+    if(!parent.portalAuthUid){ msgEl.style.color='var(--danger)'; msgEl.textContent='The selected parent does not have a portal account yet.'; playErrorSound(); return; }
+  }
   if(role==='parent' && portalPassword && portalPassword.length < 6){ msgEl.style.color='var(--danger)'; msgEl.textContent='Portal password must be at least 6 characters.'; playErrorSound(); return; }
   const students=getStudents();
   if(students.some(s=>String(s.studentId).toLowerCase()===String(id).toLowerCase())){ msgEl.style.color='var(--danger)'; msgEl.textContent='Student ID already exists.'; playErrorSound(); return; }
   const newStudent={studentId:id,name,grade,role,weeklyBorrowFee};
+  if(role==='student' && parentId) newStudent.parentId=parentId;
   if(role==='parent' && portalEmail) newStudent.portalEmail=portalEmail.toLowerCase();
   if(role==='parent' && portalPassword){
     try {
@@ -1993,15 +2010,18 @@ async function adminAddStudent() {
   students.push(newStudent); setStudents(students);
   msgEl.style.color='var(--ok)'; msgEl.textContent=`Added ${name} (${id}).`;
   playSuccessSound();
-  setTimeout(()=>{ idEl.value=''; nameEl.value=''; gradeEl.value=''; if(roleEl)roleEl.value='student'; if(feeEl){feeEl.value='';feeEl.style.display='none'} if(emailEl){emailEl.value='';emailEl.style.display='none'} if(pwEl){pwEl.value='';pwEl.style.display='none'} renderStudentList(); },1000);
+  setTimeout(()=>{ idEl.value=''; nameEl.value=''; gradeEl.value=''; if(roleEl)roleEl.value='student'; if(parentEl){parentEl.value='';parentEl.style.display='block'} if(feeEl){feeEl.value='';feeEl.style.display='none'} if(emailEl){emailEl.value='';emailEl.style.display='none'} if(pwEl){pwEl.value='';pwEl.style.display='none'} refreshParentSelector(); renderStudentList(); },1000);
 }
+
 function adminAddStudentClear() {
+  const parentEl = document.getElementById('adminAddStudentParent');
   document.getElementById('adminAddStudentId').value = '';
   document.getElementById('adminAddStudentName').value = '';
   document.getElementById('adminAddStudentGrade').value = '';
   const roleEl = document.getElementById('adminAddStudentRole');
   const feeEl = document.getElementById('adminAddStudentWeeklyFee');
   if(roleEl) roleEl.value='student';
+  if(parentEl){ parentEl.value=''; parentEl.style.display='block'; }
   if(feeEl){ feeEl.value=''; feeEl.style.display='none'; }
   const emailEl=document.getElementById('adminAddParentEmail'); const pwEl=document.getElementById('adminAddParentPassword');
   if(emailEl){emailEl.value='';emailEl.style.display='none';} if(pwEl){pwEl.value='';pwEl.style.display='none';}
