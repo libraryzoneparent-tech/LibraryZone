@@ -1,0 +1,180 @@
+:root{--card-bg:#fff;--accent:#2d6cdf;--muted:#666;--danger:#c0392b;--ok:#2e8b57}
+    body{font-family:Inter,system-ui,Arial;margin:16px;background:#f3f6fb;color:#222}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:8px;position:relative;flex-wrap:wrap}
+    h1{margin:0;font-size:20px;color:var(--accent)}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:start}
+    .card{background:var(--card-bg);padding:14px;border-radius:8px;box-shadow:0 1px 3px rgba(20,30,60,0.06)}
+    label{display:block;font-size:13px;margin-top:8px;color:var(--muted)}
+    input[type="text"],input[type="password"],input[type="number"],select,textarea{width:100%;padding:8px 10px;border:1px solid #e0e6ef;border-radius:6px;margin-top:6px}
+    button{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer}
+    button.secondary{background:#fff;color:var(--accent);border:1px solid #d7e1ff}
+    .muted{color:var(--muted);font-size:13px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:6px 8px;border-bottom:1px solid #f0f3f8;font-size:13px;text-align:left}
+    .small{font-size:12px;color:var(--muted)}
+    .right{text-align:right}
+    .danger{color:var(--danger);font-weight:600}
+    .ok{color:var(--ok);font-weight:600}
+    .dropzone{border:2px dashed #dbe9ff;padding:12px;border-radius:8px;text-align:center;background:#f9fbff;color:#274a9b;cursor:pointer}
+    .dropzone.dragover{background:#e6f0ff;border-color:#8fb4ff}
+    #licenseModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999}
+    #licenseCard{width:560px;background:#fff;padding:20px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+    #lockedOverlay{position:fixed;inset:0;z-index:900;background:rgba(255,255,255,0.9);display:block}
+    .license-view{font-size:13px;background:#f7fbff;padding:10px;border-radius:6px;margin-top:8px}
+    .flex-row{display:flex;gap:8px;align-items:center}
+    /* Notification */
+    #notifyBox { position: fixed; right: 20px; bottom: 20px; min-width: 280px; max-width: 380px; background: linear-gradient(180deg,#fff,#f0f8ff); border-left:6px solid var(--accent); padding:14px 16px; border-radius:10px; box-shadow:0 10px 30px rgba(16,32,80,0.12); display:none; z-index:12000; transform-origin:bottom right; font-size:14px; color:#0b2a66; }
+    #notifyBox.show { display:block; animation:notifyIn 450ms cubic-bezier(.2,.9,.2,1); }
+    @keyframes notifyIn { from{ transform:translateY(18px) scale(.98); opacity:0 } to{ transform:translateY(0) scale(1); opacity:1 } }
+    #notifyBox .title{font-weight:700;margin-bottom:6px}
+    #notifyBox .msg{color:var(--muted);margin-bottom:8px}
+    #notifyBox .actions{display:flex;gap:8px;justify-content:flex-end}
+    #notifyBox .btn-dismiss{background:#fff;color:var(--accent);border:1px solid #d7e1ff;padding:6px 10px;border-radius:6px}
+    .notify-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:8px;vertical-align:middle;box-shadow:0 4px 12px rgba(45,108,223,0.28)}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* center search now below header text */
+    #centerSearchWrap{ width:560px; max-width:calc(100% - 40px); margin:8px 0 4px 0; order:3; }
+    #centerSearchWrap input{ width:100%; box-shadow:0 6px 24px rgba(16,32,80,0.08); padding:10px 12px; font-size:14px }
+    /* welcome banner moved under the search bar */
+    #welcomeBanner { width:100%; text-align:center; margin-bottom:10px; order:4; display:flex; align-items:center; justify-content:center; gap:12px; }
+    #welcomeBanner .title { font-size:18px; color:var(--accent); font-weight:700 }
+    #welcomeBanner .subtitle { font-size:13px; color:var(--muted); margin-top:4px }
+    /* logout button next to welcome */
+    .logout-btn { background:#fff; color:var(--accent); border:1px solid #d7e1ff; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:13px; }
+    /* overlay results */
+    #overlayBackdrop{ position:fixed; inset:0; background:rgba(10,15,30,0.28); display:none; z-index:10000; align-items:flex-start; justify-content:center; padding-top:90px }
+    #overlayPanel{ width:760px; max-width:95%; background:rgba(255,255,255,0.98); border-radius:10px; padding:14px; box-shadow:0 20px 60px rgba(10,20,40,0.4); max-height:calc(100vh - 140px); overflow:auto; }
+    #overlayPanel table{ background:transparent; }
+    /* student panel */
+    #studentPanel { display:block; position:relative; }
+    #myBorrowsTop { margin-bottom:12px; }
+    #studentHistoryBox { margin-top:12px; font-size:13px; background:#fbfdff;padding:10px;border-radius:8px; }
+    .smallbtn{ background:transparent;border:0;color:var(--accent);cursor:pointer;padding:6px 8px;border-radius:6px }
+    /* header role buttons */
+    #roleBtnsHeader{ margin-left:auto; display:none; gap:8px; order:2 }
+    .roleBtn{ padding:6px 10px; border-radius:6px; border:1px solid transparent; background:#fff; color:var(--accent); cursor:pointer }
+    .roleBtn.active{ background:linear-gradient(135deg,var(--accent),#8fb4ff); color:#fff }
+    /* borrow modal */
+    #borrowModal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); z-index:13000 }
+    #borrowCard{ width:420px; background:#fff; padding:16px; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,0.25) }
+    /* Transient message box (generic) */
+    #msgBox {
+      display:none;
+      position: fixed;
+      right: 20px;
+      top: 20px;
+      min-width: 280px;
+      max-width: 420px;
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 12px 30px rgba(16,32,80,0.12);
+      z-index: 14000;
+      color: #07204b;
+      background: linear-gradient(180deg,#ffffff,#f0f8ff);
+      border-left: 6px solid var(--accent);
+      font-size: 14px;
+    }
+    #msgBox.show { display:block; animation:notifyIn 300ms ease; }
+    #msgBox .msg-title { font-weight:700; margin-bottom:6px; }
+    #msgBox.info { border-left-color: var(--accent); color:#07204b; }
+    #msgBox.error { border-left-color: var(--danger); color:#5a1f1f; background: linear-gradient(180deg,#fff,#fff8f8); }
+    #msgBox .msg-body { color: var(--muted); margin-bottom:8px; }
+    #msgBox .msg-actions { display:flex; justify-content:flex-end; gap:8px; }
+    #msgBox .btn-close { background:#fff;color:var(--accent);border:1px solid #d7e1ff;padding:6px 10px;border-radius:6px; cursor:pointer }
+    /* Loading spinner */
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Administrator student borrow editor */
+    #studentBorrowEditorModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.42);z-index:15000}
+    #studentBorrowEditorCard{width:900px;max-width:95%;max-height:88vh;overflow:auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28)}
+    .borrow-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .borrow-edit-row{border:1px solid #e5eaf2;border-radius:9px;padding:12px;margin-top:10px;background:#fbfdff}
+    .borrow-edit-row input,.borrow-edit-row select{width:100%;box-sizing:border-box}
+    .borrow-edit-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
+    .borrow-edit-cancel{background:#fff;color:var(--danger);border:1px solid #e5b7b2}
+    @media(max-width:700px){.borrow-edit-grid{grid-template-columns:1fr}}
+
+    /* Statistics cards */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-card h3 { margin: 0 0 8px 0; font-size: 2rem; }
+    .stat-card p { margin: 0; opacity: 0.9; }
+    .borrow-count { background: #e0f2fe; color: #0277bd; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+    .note { margin-top: 8px; font-size: 13px; }
+    /* Librarian barcode card access */
+    #btnScanLibrarian { background:#fff; color:var(--accent); border:1px solid #cfdcff; }
+    #librarianCardAccess { background:linear-gradient(180deg,#f8fbff,#fff); border:1px solid #dbe6fb; border-radius:10px; padding:12px; margin-top:12px; }
+    .librarian-card-preview { width:340px; max-width:100%; min-height:190px; margin:12px auto; padding:18px; border-radius:14px; background:linear-gradient(135deg,#173b78,#2d6cdf); color:#fff; box-shadow:0 10px 30px rgba(24,55,110,.2); display:flex; align-items:center; justify-content:space-between; gap:14px; }
+    .librarian-card-preview .barcode-wrap { background:#fff; padding:10px; border-radius:8px; flex:0 0 auto; width:190px; }
+    .librarian-card-preview .barcode-wrap svg { display:block; width:100%; height:auto; }
+    .librarian-card-title { font-weight:800; font-size:20px; letter-spacing:.4px; }
+    .librarian-card-code { font-family:monospace; font-size:12px; margin-top:8px; word-break:break-all; opacity:.95; }
+    #librarianScannerModal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); z-index:16000; }
+    #librarianScannerCard { width:560px; max-width:94%; background:#fff; padding:18px; border-radius:14px; box-shadow:0 20px 70px rgba(0,0,0,.3); }
+        #librarianScanStatus { min-height:20px; }
+    .scanner-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:10px; }
+    @media print { body * { visibility:hidden !important; } #printLibrarianCard, #printLibrarianCard * { visibility:visible !important; } #printLibrarianCard { position:absolute !important; left:0; top:0; } }
+  
+/* Improved registration inputs */
+#modal input, #modal select, #modal textarea,
+#adminAddStudentId, #adminAddStudentName, #adminAddStudentGrade,
+#adminAddStudentRole, #adminAddStudentWeeklyFee, #adminAddParentEmail, #adminAddParentPassword {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+}
+#modal .modal-card { width: min(760px, 94vw); }
+#adminAddStudentId, #adminAddStudentName, #adminAddStudentGrade,
+#adminAddStudentRole, #adminAddStudentWeeklyFee, #adminAddParentEmail, #adminAddParentPassword {
+  min-width: 180px;
+}
+@media (max-width: 900px){
+  #adminAddStudentId, #adminAddStudentName, #adminAddStudentGrade,
+  #adminAddStudentRole, #adminAddStudentWeeklyFee, #adminAddParentEmail, #adminAddParentPassword {
+    width: 100% !important;
+    min-width: 0;
+  }
+}
+
+/* Polished student/parent management controls */
+#studentsList table{width:100%;border-collapse:separate;border-spacing:0 6px;}
+#studentsList th{padding:9px 10px;font-size:12px;text-align:left;}
+#studentsList td{padding:10px;background:#fff;vertical-align:middle;border-top:1px solid #e5e9f0;border-bottom:1px solid #e5e9f0;}
+#studentsList td:first-child{border-left:1px solid #e5e9f0;border-radius:9px 0 0 9px;}
+#studentsList td:last-child{border-right:1px solid #e5e9f0;border-radius:0 9px 9px 0;}
+.student-actions{width:1%;min-width:430px;white-space:normal;text-align:right;}
+.student-actions .smallbtn{margin:2px 0 2px 4px;min-width:58px;}
+.student-actions .danger-btn{border-color:#e7b7b7;}
+.person-type{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;}
+.person-type.parent{background:#eee8ff;color:#6341a5;}
+.person-type.student{background:#e9f2ff;color:#2b63a5;}
+.parent-btn{font-weight:700;}
+#adminAddStudentId,#adminAddStudentName,#adminAddStudentGrade,#adminAddStudentRole,#adminAddStudentWeeklyFee,#adminAddParentEmail,#adminAddParentPassword{
+  min-height:46px!important;height:46px!important;padding:10px 12px!important;font-size:15px!important;border:1px solid #cfd7e3!important;border-radius:9px!important;background:#fff!important;box-sizing:border-box!important;
+}
+#adminAddStudentName{min-width:240px;}
+#adminAddParentEmail,#adminAddParentPassword{min-width:240px;}
+#adminAddStudentId{min-width:190px;}
+#adminAddStudentGrade{min-width:130px;}
+#adminAddStudentRole{min-width:150px;}
+#adminAddStudentWeeklyFee{min-width:160px;}
+#adminAddStudentId:focus,#adminAddStudentName:focus,#adminAddStudentGrade:focus,#adminAddStudentRole:focus,#adminAddStudentWeeklyFee:focus,#adminAddParentEmail:focus,#adminAddParentPassword:focus{outline:none;border-color:#6d8fc7!important;box-shadow:0 0 0 3px rgba(77,112,174,.12);}
+@media(max-width:1050px){
+  #adminAddStudentId,#adminAddStudentName,#adminAddStudentGrade,#adminAddStudentRole,#adminAddStudentWeeklyFee,#adminAddParentEmail,#adminAddParentPassword{width:100%!important;min-width:0;}
+  #adminAddStudentId,#adminAddStudentName,#adminAddStudentGrade,#adminAddStudentRole,#adminAddStudentWeeklyFee,#adminAddParentEmail,#adminAddParentPassword{margin-top:6px;}
+  .student-actions{min-width:280px;}
+}
