@@ -222,7 +222,7 @@ const LS_KEYS = {
    PostgreSQL is now the authoritative database for library data.
    Local Storage is retained only as a fast/offline cache for the UI and session state.
 */
-const LZ_API_BASE = window.LZ_API_BASE || '';
+const LZ_API_BASE = 'https://libraryzone-api.onrender.com';
 const POSTGRES_KEYS = new Set([LS_KEYS.STUDENTS, LS_KEYS.BOOKS, LS_KEYS.HISTORY, LS_KEYS.ADMIN, 'libraryzone_librarian_card']);
 let postgresReady = false;
 let postgresLoadPromise = null;
