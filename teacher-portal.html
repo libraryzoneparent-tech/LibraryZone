@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>LibraryZone — Teacher Portal</title>
+  <link rel="stylesheet" href="css/teacher.css?v=1">
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+  <main class="page">
+    <section id="loginView" class="card login-card">
+      <div class="brand">
+        <div class="brand-mark">LZ</div>
+        <div>
+          <h1>LibraryZone</h1>
+          <p>Teacher Portal</p>
+        </div>
+      </div>
+      <h2>Teacher Access</h2>
+      <p class="muted">Sign in with your LibraryZone teacher email and password.</p>
+
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="username" placeholder="teacher@example.com">
+
+      <label for="password">Password</label>
+      <input id="password" type="password" autocomplete="current-password" placeholder="Password">
+
+      <button id="loginBtn" class="primary">Sign in</button>
+      <p id="loginMsg" class="message"></p>
+    </section>
+
+    <section id="portalView" hidden>
+      <header class="topbar">
+        <div>
+          <div class="eyebrow">LIBRARYZONE</div>
+          <h1>Teacher Portal</h1>
+          <p id="teacherName" class="muted"></p>
+        </div>
+        <button id="logoutBtn" class="secondary">Sign out</button>
+      </header>
+
+      <section class="stats">
+        <div class="stat"><span>Currently out</span><strong id="statCurrent">0</strong></div>
+        <div class="stat"><span>Returned</span><strong id="statReturned">0</strong></div>
+        <div class="stat"><span>Late</span><strong id="statLate">0</strong></div>
+        <div class="stat"><span>Unpaid late fees</span><strong id="statUnpaid">0</strong></div>
+      </section>
+
+      <section class="card filters">
+        <div>
+          <label for="statusFilter">Status</label>
+          <select id="statusFilter">
+            <option value="all">All books</option>
+            <option value="current">Current borrows</option>
+            <option value="returned">Returned books</option>
+            <option value="late">Late books</option>
+            <option value="unpaid">Late & unpaid</option>
+            <option value="paid">Late & paid</option>
+          </select>
+        </div>
+        <div>
+          <label for="gradeFilter">Student / Grade</label>
+          <select id="gradeFilter">
+            <option value="all">All students</option>
+          </select>
+        </div>
+        <div class="search-wrap">
+          <label for="studentSearch">Search</label>
+          <input id="studentSearch" type="search" placeholder="Student name or ID">
+        </div>
+        <button id="refreshBtn" class="secondary refresh">Refresh</button>
+      </section>
+
+      <section class="card table-card">
+        <div class="table-head">
+          <div>
+            <h2>Library Activity</h2>
+            <p class="muted">Current borrows and returned books from the LibraryZone database.</p>
+          </div>
+          <span id="resultCount" class="count">0 records</span>
+        </div>
+
+        <div id="loading" class="loading">Loading library activity…</div>
+        <div id="error" class="error" hidden></div>
+
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Student</th>
+                <th>Grade</th>
+                <th>Book</th>
+                <th>Borrowed</th>
+                <th>Due</th>
+                <th>Status</th>
+                <th>Returned</th>
+                <th>Fee</th>
+                <th>Payment</th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="js/teacher.js?v=1"></script>
+</body>
+</html>
