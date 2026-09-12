@@ -975,58 +975,516 @@ function refreshParentSelector(){
   select.innerHTML='<option value="">No parent assigned</option>'+parents.map(p=>`<option value="${escapeHtml(String(p.studentId))}">${escapeHtml(String(p.name||p.studentId))} — ${escapeHtml(String(p.portalEmail||'No email'))}</option>`).join('');
   if(parents.some(p=>String(p.studentId)===current)) select.value=current;
 }
-function renderStudentList(){
-  refreshParentSelector();
-  const container=document.getElementById('studentsList');
-  if(!container) return;
-  const searchEl=document.getElementById('searchStudent');
-  const filter=searchEl ? String(searchEl.value||'').trim().toLowerCase() : '';
-  const students=getStudents().filter(s=>{
-    const sid=String(s.studentId||'').toLowerCase();
-    const name=String(s.name||'').toLowerCase();
-    return !filter || sid.includes(filter) || name.includes(filter);
+function renderStudentList() {
+  const container = document.getElementById('studentsList');
+  if (!container) return;
+
+  const searchEl = document.getElementById('searchStudent');
+  const filter = searchEl
+    ? String(searchEl.value || '').trim().toLowerCase()
+    : '';
+
+  const allStudents = getStudents();
+
+  const students = allStudents.filter(s => {
+    const id = String(s.studentId || '').toLowerCase();
+    const name = String(s.name || '').toLowerCase();
+
+    return !filter || id.includes(filter) || name.includes(filter);
   });
-  if(students.length===0){ container.innerHTML='<div class="small">No students found</div>'; return; }
-  let html='<table><thead><tr><th>ID</th><th>Name</th><th class="right">Grade</th><th>Type</th><th class="right">Weekly Fee</th><th>Actions</th></tr></thead><tbody>';
-  students.forEach(s=>{
-    const id=String(s.studentId||'');
-    const role=String(s.role||'student').toLowerCase()==='parent'?'Parent':'Student';
-    const fee=role==='Parent'?Number(s.weeklyBorrowFee||0).toFixed(2):'—';
-    const safeId=escapeHtml(id);
-    html += `<tr><td class="small">${safeId}</td><td>${escapeHtml(s.name)}</td><td class="right small">${escapeHtml(s.grade||'')}</td><td class="small"><span class="person-type ${role==='Parent'?'parent':'student'}">${role}</span></td><td class="right small">${fee}</td><td class="student-actions" data-student-id="${safeId}">
-      <button type="button" class="smallbtn" data-action="edit">Edit</button>
-      <button type="button" class="smallbtn" data-action="login">Login</button>
-      <button type="button" class="smallbtn danger-btn" data-action="delete">Delete</button>
-      <button type="button" class="smallbtn" data-action="debts">Debts</button>
-      <button type="button" class="smallbtn" data-action="borrows">Borrows</button>
-      ${role==='Parent'?'<button type="button" class="smallbtn parent-btn" data-action="portal">Portal</button>':''}
-    </td></tr>`;
-  });
-  html += '</tbody></table>';
-  container.innerHTML=html;
-  container.querySelectorAll('.student-actions').forEach(group=>{
-    group.addEventListener('click',function(e){
-      const btn=e.target.closest('button[data-action]');
-      if(!btn || !group.contains(btn)) return;
-      e.preventDefault(); e.stopPropagation();
-      const id=String(group.getAttribute('data-student-id')||'');
-      try{
-        guarded(()=>{
-          switch(btn.dataset.action){
-            case 'edit': return editStudent(id);
-            case 'login': return quickLogin(id);
-            case 'delete': return deleteStudent(id);
-            case 'debts': return showStudentDebts(id);
-            case 'borrows': return openStudentBorrowEditor(id);
-            case 'portal': return manageParentPortal(id);
-          }
-        });
-      }catch(err){
-        console.error('Library Zone student action failed:',err);
-        showMsgBox('Action Failed',String(err&&err.message||err),'error');
+
+  if (students.length === 0) {
+    container.innerHTML = '<div class="small">No students found</div>';
+    return;
+  }
+
+  let html = `
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Grade</th>
+          <th>Type</th>
+          <th>Parent</th>
+          <th>Weekly Fee</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  students.forEach(student => {
+    const id = String(student.studentId || '');
+    const name = String(student.name || '');
+    const grade = String(student.grade || '');
+
+    const isParent =
+      String(student.role || '').toLowerCase() === 'parent';
+
+    const roleText = isParent ? 'Parent' : 'Student';
+
+    const fee = isParent
+      ? Number(student.weeklyBorrowFee || 0).toFixed(2)
+      : '—';
+
+    /*
+     * Find the parent assigned to this student.
+     * IMPORTANT:
+     * We are only reading parentId.
+     * We are NOT changing the student's borrowing records.
+     */
+    let parentName = '—';
+
+    if (!isParent && student.parentId) {
+      const parent = allStudents.find(p =>
+        String(p.studentId) === String(student.parentId) &&
+        String(p.role || '').toLowerCase() === 'parent'
+      );
+
+      if (parent) {
+        parentName = parent.name || parent.studentId;
       }
-    });
+    }
+
+    html += `
+      <tr>
+
+        <td class="small">
+          ${escapeHtml(id)}
+        </td>
+
+        <td>
+          ${escapeHtml(name)}
+        </td>
+
+        <td class="small">
+          ${escapeHtml(grade)}
+        </td>
+
+        <td class="small">
+          ${roleText}
+        </td>
+
+        <td class="small">
+          ${escapeHtml(parentName)}
+        </td>
+
+        <td class="small">
+          ${escapeHtml(fee)}
+        </td>
+
+        <td style="white-space:nowrap;">
+
+          ${
+            !isParent
+              ? `<button
+                   type="button"
+                   class="smallbtn"
+                   onclick="assignParentToStudent('${escapeHtml(id)}')">
+                   Parent
+                 </button>`
+              : ''
+          }
+
+          <button
+            type="button"
+            class="smallbtn"
+            onclick="editStudent('${escapeHtml(id)}')">
+            Edit
+          </button>
+
+          <button
+            type="button"
+            class="smallbtn"
+            onclick="quickLogin('${escapeHtml(id)}')">
+            Login
+          </button>
+
+          <button
+            type="button"
+            class="smallbtn"
+            onclick="deleteStudent('${escapeHtml(id)}')">
+            Delete
+          </button>
+
+          <button
+            type="button"
+            class="smallbtn"
+            onclick="showStudentDebts('${escapeHtml(id)}')">
+            Debts
+          </button>
+
+          <button
+            type="button"
+            class="smallbtn"
+            onclick="openStudentBorrowEditor('${escapeHtml(id)}')">
+            Borrows
+          </button>
+
+          ${
+            isParent
+              ? `<button
+                   type="button"
+                   class="smallbtn"
+                   onclick="manageParentPortal('${escapeHtml(id)}')">
+                   Portal
+                 </button>`
+              : ''
+          }
+
+        </td>
+      </tr>
+    `;
   });
+
+  html += `
+      </tbody>
+    </table>
+  `;
+
+  container.innerHTML = html;
+}
+
+
+/*
+ * Assign an EXISTING student to an EXISTING parent.
+ *
+ * This does NOT:
+ * - create a new student
+ * - delete the student
+ * - replace the student
+ * - change borrowing history
+ * - change borrowed books
+ * - change fees
+ *
+ * It only changes:
+ *
+ *     student.parentId
+ */
+async function assignParentToStudent(studentId) {
+
+  if (!isAdminSession()) {
+    showMsgBox(
+      'Administrator Required',
+      'Please log in as administrator first.',
+      'error'
+    );
+    return;
+  }
+
+  const students = getStudents();
+
+  const student = students.find(
+    s => String(s.studentId) === String(studentId)
+  );
+
+  if (!student) {
+    showMsgBox(
+      'Student Not Found',
+      'The student could not be found.',
+      'error'
+    );
+    return;
+  }
+
+  if (
+    String(student.role || '').toLowerCase() === 'parent'
+  ) {
+    showMsgBox(
+      'Invalid Selection',
+      'A parent cannot be assigned to another parent.',
+      'error'
+    );
+    return;
+  }
+
+  /*
+   * Only parents who already have a Firebase portal account
+   * can be selected.
+   */
+  const parents = students.filter(parent =>
+    String(parent.role || '').toLowerCase() === 'parent' &&
+    parent.portalAuthUid
+  );
+
+  if (parents.length === 0) {
+    showMsgBox(
+      'No Parents Available',
+      'There are no parent accounts with a portal login available yet.',
+      'error'
+    );
+    return;
+  }
+
+  const currentParentId =
+    student.parentId
+      ? String(student.parentId)
+      : '';
+
+  /*
+   * Create the dialog.
+   */
+  const overlay = document.createElement('div');
+
+  overlay.style.cssText = `
+    position:fixed;
+    inset:0;
+    background:rgba(0,0,0,0.45);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:99999;
+    padding:20px;
+  `;
+
+  const box = document.createElement('div');
+
+  box.style.cssText = `
+    width:min(520px,100%);
+    background:white;
+    color:#111;
+    border-radius:16px;
+    padding:24px;
+    box-shadow:0 20px 60px rgba(0,0,0,.30);
+  `;
+
+  const title = document.createElement('h3');
+
+  title.textContent =
+    `Assign Parent to ${student.name || student.studentId}`;
+
+  title.style.margin = '0 0 18px 0';
+
+  const description = document.createElement('p');
+
+  description.textContent =
+    'Choose the parent for this existing student. The student and all borrowing records will remain unchanged.';
+
+  description.style.cssText = `
+    margin:0 0 18px 0;
+    line-height:1.5;
+    font-size:14px;
+    opacity:.75;
+  `;
+
+  const label = document.createElement('label');
+
+  label.textContent = 'Parent';
+
+  label.style.cssText = `
+    display:block;
+    font-weight:600;
+    margin-bottom:7px;
+  `;
+
+  const select = document.createElement('select');
+
+  select.style.cssText = `
+    width:100%;
+    padding:12px;
+    border:1px solid #ccc;
+    border-radius:10px;
+    font-size:16px;
+    box-sizing:border-box;
+    margin-bottom:20px;
+  `;
+
+  /*
+   * Option to remove an existing parent.
+   */
+  const noneOption = document.createElement('option');
+
+  noneOption.value = '';
+  noneOption.textContent = 'No parent assigned';
+
+  select.appendChild(noneOption);
+
+  /*
+   * Add all available parents.
+   */
+  parents.forEach(parent => {
+
+    const option = document.createElement('option');
+
+    option.value = String(parent.studentId);
+
+    option.textContent =
+      `${parent.name || parent.studentId}` +
+      (
+        parent.portalEmail
+          ? ` — ${parent.portalEmail}`
+          : ''
+      );
+
+    if (
+      String(parent.studentId) === currentParentId
+    ) {
+      option.selected = true;
+    }
+
+    select.appendChild(option);
+  });
+
+  const buttonArea = document.createElement('div');
+
+  buttonArea.style.cssText = `
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+  `;
+
+  const cancelButton = document.createElement('button');
+
+  cancelButton.type = 'button';
+  cancelButton.className = 'smallbtn';
+  cancelButton.textContent = 'Cancel';
+
+  const saveButton = document.createElement('button');
+
+  saveButton.type = 'button';
+  saveButton.className = 'smallbtn';
+  saveButton.textContent = 'Save Parent';
+
+  buttonArea.appendChild(cancelButton);
+  buttonArea.appendChild(saveButton);
+
+  box.appendChild(title);
+  box.appendChild(description);
+  box.appendChild(label);
+  box.appendChild(select);
+  box.appendChild(buttonArea);
+
+  overlay.appendChild(box);
+
+  document.body.appendChild(overlay);
+
+  /*
+   * Close dialog.
+   */
+  function closeDialog() {
+    if (overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+  }
+
+  cancelButton.addEventListener(
+    'click',
+    closeDialog
+  );
+
+  overlay.addEventListener(
+    'click',
+    function(event) {
+      if (event.target === overlay) {
+        closeDialog();
+      }
+    }
+  );
+
+  /*
+   * Save parent assignment.
+   */
+  saveButton.addEventListener(
+    'click',
+    async function() {
+
+      const selectedParentId =
+        String(select.value || '').trim();
+
+      saveButton.disabled = true;
+      saveButton.textContent = 'Saving...';
+
+      /*
+       * IMPORTANT:
+       * Only modify parentId.
+       *
+       * We do NOT replace the student object.
+       */
+      if (selectedParentId) {
+
+        const selectedParent = students.find(parent =>
+          String(parent.studentId) === selectedParentId &&
+          String(parent.role || '').toLowerCase() === 'parent' &&
+          parent.portalAuthUid
+        );
+
+        if (!selectedParent) {
+
+          saveButton.disabled = false;
+          saveButton.textContent = 'Save Parent';
+
+          showMsgBox(
+            'Parent Not Found',
+            'The selected parent is no longer available.',
+            'error'
+          );
+
+          return;
+        }
+
+        student.parentId = selectedParentId;
+
+      } else {
+
+        /*
+         * Remove the parent assignment only.
+         */
+        delete student.parentId;
+      }
+
+      try {
+
+        /*
+         * Save the SAME student list.
+         *
+         * Therefore all other student data remains intact.
+         */
+        await save(
+          LS_KEYS.STUDENTS,
+          students
+        );
+
+        closeDialog();
+
+        renderStudentList();
+
+        updateStatistics();
+
+        showMsgBox(
+          'Parent Assigned',
+          selectedParentId
+            ? `${student.name} has been assigned to the selected parent.`
+            : `${student.name} no longer has a parent assigned.`,
+          'info'
+        );
+
+      } catch (error) {
+
+        /*
+         * Restore the previous parent assignment
+         * if PostgreSQL saving failed.
+         */
+        if (currentParentId) {
+          student.parentId = currentParentId;
+        } else {
+          delete student.parentId;
+        }
+
+        saveButton.disabled = false;
+        saveButton.textContent = 'Save Parent';
+
+        showMsgBox(
+          'Save Failed',
+          'The parent assignment could not be saved. ' +
+          (error && error.message
+            ? error.message
+            : ''),
+          'error'
+        );
+      }
+    }
+  );
 }
 function editStudent(id){
   const students=getStudents(), s=students.find(x=>String(x.studentId)===String(id));
