@@ -223,8 +223,14 @@ const LS_KEYS = {
    Local Storage is retained only as a fast/offline cache for the UI and session state.
 */
 const LZ_API_BASE = window.LZ_API_BASE || 'https://libraryzone-api.onrender.com';
-const POSTGRES_KEYS = new Set([LS_KEYS.STUDENTS, LS_KEYS.BOOKS, LS_KEYS.HISTORY, LS_KEYS.ADMIN, 'libraryzone_librarian_card']);
-let postgresReady = false;
+const POSTGRES_KEYS = new Set([
+  LS_KEYS.STUDENTS,
+  LS_KEYS.BOOKS,
+  LS_KEYS.HISTORY,
+  LS_KEYS.ADMIN,
+  'libraryzone_librarian_card',
+  'lib_teachers_final'
+]);
 let postgresLoadPromise = null;
 
 async function postgresRequest(path, options={}) {
@@ -906,7 +912,680 @@ function adminLogout(){
 }
 
 function loadAdminPanel(){ const authed = isAdminSession(); const panel = document.getElementById('adminPanel'); const loginArea = document.getElementById('adminLoginArea'); const card = document.getElementById('adminCard'); if(authed){ if(card) card.style.display='block'; loginArea.style.display='none'; panel.style.display='block'; const conf = getAdminConfig(); document.getElementById('cfg_max_books').value = conf.maxBooks; document.getElementById('cfg_max_days').value = conf.maxDays; document.getElementById('cfg_weekly_fee').value = conf.weeklyFee; document.getElementById('cfg_parent_weekly_fee').value = conf.parentWeeklyFee !== undefined ? conf.parentWeeklyFee : 5.00; document.getElementById('cfg_admin_password').value = conf.adminPassword; const lc=getLibrarianCardConfig() || {}; const codeInput=document.getElementById('cfg_librarian_card_code'); const nameInput=document.getElementById('cfg_librarian_card_name'); const enabledInput=document.getElementById('cfg_librarian_card_enabled'); if(codeInput) codeInput.value=lc.code||''; if(nameInput) nameInput.value=lc.name||''; if(enabledInput) enabledInput.checked=lc.enabled !== false; renderLevelColorPickers(); } else { if(card) card.style.display='block'; loginArea.style.display='block'; panel.style.display='none'; } }
+/* =========================================================
+   TEACHER PORTAL ACCOUNT MANAGEMENT
+   ========================================================= */
 
+function getTeachers() {
+  return load('lib_teachers_final', []);
+}
+
+function teacherAdminErrorText(e) {
+  const code = e && e.code ? ` [${e.code}]` : '';
+  return `${e && e.message ? e.message : 'Unknown Firebase error'}${code}`;
+}
+
+
+/* ---------- Create Firebase teacher account ---------- */
+
+async function createTeacherFirebaseAccount(email, password) {
+
+  if (!parentAuth) {
+    throw new Error('Firebase Authentication is not initialized.');
+  }
+
+  const cleanEmail = String(email || '')
+    .trim()
+    .toLowerCase();
+
+  if (!cleanEmail) {
+    throw new Error('Teacher email is required.');
+  }
+
+  if (!password || String(password).length < 6) {
+    throw new Error('Teacher password must be at least 6 characters.');
+  }
+
+  try {
+
+    const cred =
+      await parentAuth.createUserWithEmailAndPassword(
+        cleanEmail,
+        String(password)
+      );
+
+    return {
+      uid: cred.user.uid,
+      email: cleanEmail,
+      created: true
+    };
+
+  } catch (e) {
+
+    /*
+     * If the Firebase account already exists,
+     * we don't need the password.
+     *
+     * The administrator can authorize the email
+     * as a LibraryZone teacher.
+     */
+
+    if (e && e.code === 'auth/email-already-in-use') {
+
+      return {
+        uid: '',
+        email: cleanEmail,
+        created: false,
+        alreadyExists: true
+      };
+    }
+
+    throw e;
+
+  } finally {
+
+    /*
+     * Sign out of the secondary Firebase app.
+     * This does NOT sign out the administrator.
+     */
+
+    try {
+      await parentAuth.signOut();
+    } catch (_) {}
+
+  }
+}
+
+
+/* ---------- Render Teacher Management ---------- */
+
+function renderTeacherAdminPanel() {
+
+  const panel = document.getElementById('adminPanel');
+
+  if (!panel || !isAdminSession()) {
+    return;
+  }
+
+  let box =
+    document.getElementById('teacherAdminPanel');
+
+  if (!box) {
+
+    box = document.createElement('section');
+
+    box.id = 'teacherAdminPanel';
+
+    box.style.cssText =
+      'margin-top:24px;' +
+      'padding:20px;' +
+      'border:1px solid #dce4ef;' +
+      'border-radius:14px;' +
+      'background:#fff;';
+
+    panel.appendChild(box);
+  }
+
+  const teachers = getTeachers();
+
+  box.innerHTML = `
+
+    <div style="
+      display:flex;
+      justify-content:space-between;
+      gap:16px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    ">
+
+      <div>
+
+        <h3 style="margin:0 0 5px;">
+          Teacher Portal Accounts
+        </h3>
+
+        <div
+          class="small"
+          style="opacity:.75;"
+        >
+          Teachers are not assigned students.
+          They can view library activity and record
+          late-fee payments.
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div style="
+      display:grid;
+      grid-template-columns:
+        minmax(180px,1fr)
+        minmax(180px,1fr)
+        auto;
+      gap:10px;
+      align-items:end;
+      margin-top:16px;
+    ">
+
+      <div>
+
+        <label style="
+          display:block;
+          margin-bottom:6px;
+          font-weight:600;
+        ">
+          Teacher email
+        </label>
+
+        <input
+          id="teacherAdminEmail"
+          type="email"
+          placeholder="teacher@school.com"
+          autocomplete="off"
+          style="
+            width:100%;
+            min-height:44px;
+            padding:10px 12px;
+            box-sizing:border-box;
+          "
+        >
+
+      </div>
+
+
+      <div>
+
+        <label style="
+          display:block;
+          margin-bottom:6px;
+          font-weight:600;
+        ">
+          Teacher password
+        </label>
+
+        <input
+          id="teacherAdminPassword"
+          type="password"
+          placeholder="Minimum 6 characters"
+          autocomplete="new-password"
+          style="
+            width:100%;
+            min-height:44px;
+            padding:10px 12px;
+            box-sizing:border-box;
+          "
+        >
+
+      </div>
+
+
+      <button
+        type="button"
+        class="smallbtn"
+        id="teacherAdminAddBtn"
+      >
+        Add Teacher
+      </button>
+
+    </div>
+
+
+    <div
+      id="teacherAdminMsg"
+      class="small"
+      style="margin-top:9px;"
+    ></div>
+
+
+    <div style="
+      margin-top:18px;
+      overflow:auto;
+    ">
+
+      <table style="
+        width:100%;
+        border-collapse:collapse;
+        min-width:560px;
+      ">
+
+        <thead>
+
+          <tr>
+
+            <th style="
+              text-align:left;
+              padding:9px;
+              border-bottom:1px solid #e5e9f0;
+            ">
+              Email
+            </th>
+
+            <th style="
+              text-align:left;
+              padding:9px;
+              border-bottom:1px solid #e5e9f0;
+            ">
+              Status
+            </th>
+
+            <th style="
+              text-align:left;
+              padding:9px;
+              border-bottom:1px solid #e5e9f0;
+            ">
+              Action
+            </th>
+
+          </tr>
+
+        </thead>
+
+
+        <tbody>
+
+          ${
+            teachers.length
+
+            ?
+
+            teachers.map((teacher, index) => `
+
+              <tr>
+
+                <td style="
+                  padding:9px;
+                  border-bottom:1px solid #edf1f6;
+                ">
+                  ${escapeHtml(teacher.email || '')}
+                </td>
+
+
+                <td style="
+                  padding:9px;
+                  border-bottom:1px solid #edf1f6;
+                ">
+                  Active
+                </td>
+
+
+                <td style="
+                  padding:9px;
+                  border-bottom:1px solid #edf1f6;
+                ">
+
+                  <button
+                    type="button"
+                    class="smallbtn"
+                    data-teacher-remove="${index}"
+                  >
+                    Remove access
+                  </button>
+
+                </td>
+
+              </tr>
+
+            `).join('')
+
+            :
+
+            `
+              <tr>
+
+                <td
+                  colspan="3"
+                  class="small"
+                  style="
+                    padding:12px;
+                    opacity:.7;
+                  "
+                >
+                  No teacher accounts have been added yet.
+                </td>
+
+              </tr>
+            `
+          }
+
+        </tbody>
+
+      </table>
+
+    </div>
+  `;
+
+
+  const addButton =
+    document.getElementById('teacherAdminAddBtn');
+
+  if (addButton) {
+
+    addButton.addEventListener(
+      'click',
+      addTeacherFromAdmin
+    );
+
+  }
+
+
+  box
+    .querySelectorAll('[data-teacher-remove]')
+    .forEach(button => {
+
+      button.addEventListener(
+        'click',
+        async () => {
+
+          const index =
+            Number(button.dataset.teacherRemove);
+
+          await removeTeacherFromAdmin(index);
+
+        }
+      );
+
+    });
+
+}
+
+
+/* ---------- Add Teacher ---------- */
+
+async function addTeacherFromAdmin() {
+
+  if (!isAdminSession()) {
+
+    showMsgBox(
+      'Administrator Required',
+      'Log in as administrator first.',
+      'error'
+    );
+
+    return;
+  }
+
+
+  const emailElement =
+    document.getElementById('teacherAdminEmail');
+
+  const passwordElement =
+    document.getElementById('teacherAdminPassword');
+
+  const message =
+    document.getElementById('teacherAdminMsg');
+
+
+  const email =
+    String(emailElement?.value || '')
+      .trim()
+      .toLowerCase();
+
+  const password =
+    String(passwordElement?.value || '');
+
+
+  if (!email || !email.includes('@')) {
+
+    if (message) {
+
+      message.style.color = 'var(--danger)';
+
+      message.textContent =
+        'Enter a valid teacher email.';
+
+    }
+
+    return;
+  }
+
+
+  if (password.length < 6) {
+
+    if (message) {
+
+      message.style.color = 'var(--danger)';
+
+      message.textContent =
+        'Password must contain at least 6 characters.';
+
+    }
+
+    return;
+  }
+
+
+  const teachers = getTeachers();
+
+
+  if (
+    teachers.some(
+      teacher =>
+        String(teacher.email || '')
+          .toLowerCase() === email
+    )
+  ) {
+
+    if (message) {
+
+      message.style.color = 'var(--danger)';
+
+      message.textContent =
+        'This teacher is already authorized.';
+
+    }
+
+    return;
+  }
+
+
+  const addButton =
+    document.getElementById('teacherAdminAddBtn');
+
+
+  if (addButton) {
+
+    addButton.disabled = true;
+
+    addButton.textContent = 'Creating...';
+
+  }
+
+
+  if (message) {
+
+    message.style.color = '';
+
+    message.textContent =
+      'Creating Firebase teacher account...';
+
+  }
+
+
+  try {
+
+    const result =
+      await createTeacherFirebaseAccount(
+        email,
+        password
+      );
+
+
+    teachers.push({
+
+      email: result.email,
+
+      uid: result.uid || '',
+
+      createdAt:
+        new Date().toISOString()
+
+    });
+
+
+    await save(
+      'lib_teachers_final',
+      teachers
+    );
+
+
+    if (message) {
+
+      message.style.color = 'var(--ok)';
+
+      message.textContent =
+        result.alreadyExists
+
+          ? 'Existing Firebase account authorized as a teacher.'
+
+          : 'Teacher account created and authorized.';
+
+    }
+
+
+    if (emailElement) {
+      emailElement.value = '';
+    }
+
+    if (passwordElement) {
+      passwordElement.value = '';
+    }
+
+
+    renderTeacherAdminPanel();
+
+
+    showMsgBox(
+      'Teacher Added',
+      `${email} can now sign in to the Teacher Portal.`,
+      'info'
+    );
+
+
+  } catch (e) {
+
+    console.error(
+      'Teacher creation failed:',
+      e
+    );
+
+
+    if (message) {
+
+      message.style.color =
+        'var(--danger)';
+
+      message.textContent =
+        teacherAdminErrorText(e);
+
+    }
+
+
+    showMsgBox(
+      'Teacher Account Failed',
+      teacherAdminErrorText(e),
+      'error'
+    );
+
+
+  } finally {
+
+    const button =
+      document.getElementById(
+        'teacherAdminAddBtn'
+      );
+
+    if (button) {
+
+      button.disabled = false;
+
+      button.textContent =
+        'Add Teacher';
+
+    }
+
+  }
+
+}
+
+
+/* ---------- Remove Teacher Access ---------- */
+
+async function removeTeacherFromAdmin(index) {
+
+  if (!isAdminSession()) {
+    return;
+  }
+
+
+  const teachers = getTeachers();
+
+  const teacher = teachers[index];
+
+  if (!teacher) {
+    return;
+  }
+
+
+  if (
+    !confirm(
+      `Remove Teacher Portal access for ${teacher.email}?\n\n` +
+      `This does not delete the Firebase account. ` +
+      `It only removes LibraryZone Teacher Portal access.`
+    )
+  ) {
+    return;
+  }
+
+
+  teachers.splice(index, 1);
+
+
+  try {
+
+    await save(
+      'lib_teachers_final',
+      teachers
+    );
+
+
+    renderTeacherAdminPanel();
+
+
+    showMsgBox(
+      'Teacher Access Removed',
+      `${teacher.email} can no longer use the LibraryZone Teacher Portal.`,
+      'info'
+    );
+
+
+  } catch (e) {
+
+    showMsgBox(
+      'Save Failed',
+      teacherAdminErrorText(e),
+      'error'
+    );
+
+  }
+
+}
+
+
+/* ---------- Add Teacher section to Admin panel ---------- */
+
+const originalLoadAdminPanel =
+  loadAdminPanel;
+
+
+loadAdminPanel = function() {
+
+  originalLoadAdminPanel();
+
+  renderTeacherAdminPanel();
+
+};
 function saveAdminSettings(){ 
   const maxBooks = parseInt(document.getElementById('cfg_max_books').value,10)||3; 
   const maxDays = parseInt(document.getElementById('cfg_max_days').value,10)||14; 
