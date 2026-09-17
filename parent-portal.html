@@ -1353,75 +1353,49 @@ async function loadPortal(user) {
 
 
 // ---------------------------------------------------------
+// Login status message helper
+// ---------------------------------------------------------
+function setMsg(message, success = false) {
+  const element = $('loginMsg');
+  if (!element) return;
+  element.textContent = message || '';
+  element.className = success ? 'ok' : 'error';
+  element.setAttribute('role', success ? 'status' : 'alert');
+  element.setAttribute('aria-live', 'polite');
+}
+
+
+// ---------------------------------------------------------
 // Login
 // ---------------------------------------------------------
 
-$('loginBtn').onclick =
-  async () => {
+$('loginBtn').onclick = async () => {
+  const email = $('parentEmail').value.trim();
+  const pw = $('password').value;
+  const btn = $('loginBtn');
 
-    const email =
-      $('parentEmail')
-        .value
-        .trim();
+  if (!email || !pw) {
+    setMsg('Enter your email and password.');
+    return;
+  }
 
-    const pw =
-      $('password').value;
+  btn.disabled = true;
+  setMsg('Connecting to Firebase…', true);
 
-
-    if (!email || !pw) {
-
-      setMsg(
-        'Enter your email and password.'
-      );
-
-      return;
-    }
-
-
-    $('loginBtn').disabled =
-      true;
-
-    setMsg(
-      'Signing in...',
-      true
-    );
-
-
-    try {
-
-      const credential =
-        await auth
-          .signInWithEmailAndPassword(
-            email,
-            pw
-          );
-
-
-      await loadPortal(
-        credential.user
-      );
-
-
-      setMsg('');
-
-
-    } catch (error) {
-
-      console.error(
-        error
-      );
-
-      setMsg(
-        'Sign-in failed. Check your email and password.'
-      );
-
-
-    } finally {
-
-      $('loginBtn').disabled =
-        false;
-    }
-  };
+  try {
+    const credential = await auth.signInWithEmailAndPassword(email, pw);
+    setMsg('Signed in. Loading your LibraryZone information…', true);
+    await loadPortal(credential.user);
+    setMsg('');
+  } catch (error) {
+    console.error('Parent sign-in failed:', error);
+    const code = error && error.code ? ` (${error.code})` : '';
+    const detail = error && error.message ? error.message : 'Please try again.';
+    setMsg(`Sign-in failed${code}: ${detail}`);
+  } finally {
+    btn.disabled = false;
+  }
+};
 
 
 // ---------------------------------------------------------
