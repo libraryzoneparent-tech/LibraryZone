@@ -31,7 +31,7 @@
       <img alt="" style="width:44px;height:44px;border-radius:8px;background:linear-gradient(135deg,#2d6cdf,#8fb4ff)">
       <div>
         <h1>Quick Return — Auto</h1>
-        <div class="small">Scan a book barcode and it will be returned automatically. Returns and late-fee payments are saved directly to the LibraryZone database and are printable.</div>
+        <div class="small">Scan a book barcode and it will be returned automatically. The return and any outstanding late fee are saved to the LibraryZone database. Returning a book does NOT mark the fee as paid.</div>
       </div>
       <div style="margin-left:auto">
         <a href="index.html" style="text-decoration:none"><button class="secondary">Back to app</button></a>
@@ -255,7 +255,7 @@ function playErrorSound(){
   });
 }
 
-/* After a successful return with fee>0, record session fee and persist payment record (ledger) */
+/* Payment recording is intentionally separate from book return. */
 async function recordPayment(tx, amount, bookTitle){
   if(amount <= 0) return null;
 
@@ -286,7 +286,9 @@ async function recordPayment(tx, amount, bookTitle){
   return paymentRecord;
 }
 
-/* Perform the automatic return for a scanned barcode */
+/* Perform the automatic return for a scanned barcode.
+   Returning a book records the return and outstanding fee only.
+   It must NOT imply that the fee was paid. */
 async function performAutoReturn(barcode){
   const barcodeTrim = String(barcode || '').trim();
 
@@ -311,21 +313,14 @@ async function performAutoReturn(barcode){
 
   const tx = found.tx;
   const book = books.find(b => String(b.barcode) === barcodeTrim);
-  const bookTitle = book ? (book.title || barcodeTrim) : barcodeTrim;
   const fee = computeFeeForTx(tx, admin);
 
+  // Record return date and fee assessed, but leave payment status unpaid.
   tx.returnDate = new Date().toISOString();
   tx.overdueFee = fee;
-
-  if(fee > 0){
-    tx.feePaid = true;
-    tx.feePaidAt = new Date().toISOString();
-    tx.feePaidBy = 'Return Page';
-  } else {
-    tx.feePaid = false;
-    tx.feePaidAt = null;
-    tx.feePaidBy = null;
-  }
+  tx.feePaid = false;
+  tx.feePaidAt = null;
+  tx.feePaidBy = null;
 
   if(book) book.available = true;
 
@@ -336,10 +331,9 @@ async function performAutoReturn(barcode){
     await saveDatabaseKey(LS.BOOKS, books);
 
     if(fee > 0){
-      await recordPayment(tx, fee, bookTitle);
-      setResult(`Returned ${barcodeTrim}. Fee ${fee.toFixed(2)} collected and saved to PostgreSQL.`, 'ok');
+      setResult(`Returned ${barcodeTrim}. Outstanding late fee: ${fee.toFixed(2)} — NOT marked as paid. Saved to PostgreSQL.`, 'ok');
     } else {
-      setResult(`Returned ${barcodeTrim}. No fee. Saved to PostgreSQL.`, 'ok');
+      setResult(`Returned ${barcodeTrim}. No late fee. Saved to PostgreSQL.`, 'ok');
     }
 
     playSuccessSound();
