@@ -108,7 +108,7 @@ function render(){
     const current=!r.returnDate;
     const fee=feeValue(r);
     const status=current
-      ? (late ? '<span class="badge late">Late</span>' : '<span class="badge current">Currently out</span>')
+      ? (late ? '<span class="badge late" style="color: Red">Late</span>' : '<span class="badge current">Currently out</span>')
       : (late ? '<span class="badge late">Returned late</span>' : '<span class="badge returned">Returned</span>');
 
     let payment='—';
