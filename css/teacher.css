@@ -45,7 +45,7 @@ td{font-size:14px}
 .badge.returned{background:#edf7ee;color:#28763a}
 .badge.late{background:#fff0df;color:#a60000}
 .pay-btn{min-width:92px}
-.pay-btn.unpaid{background:#fff0df;color:#9b5200}
+.pay-btn.unpaid{background:#fff0df;color:#9b0000}
 .pay-btn.paid{background:#e9f7ed;color:#23743b}
 .fee{font-variant-numeric:tabular-nums;font-weight:700}
 @media(max-width:850px){
