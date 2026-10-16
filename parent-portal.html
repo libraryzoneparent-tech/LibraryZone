@@ -303,6 +303,19 @@ td.num,th.num{text-align:right}
 #lz-powered-by .lz-pb-name span{font-weight:300;letter-spacing:.025em;color:#80f1f4}
 @media(max-width:480px){#lz-powered-by{right:9px;bottom:9px;padding:6px 8px;gap:6px}#lz-powered-by .lz-pb-symbol{width:23px}#lz-powered-by .lz-pb-label{font-size:7px}#lz-powered-by .lz-pb-name{font-size:10px}}
 
+
+/* Welcome message shown after the parent portal has loaded successfully. */
+#lz-qr-welcome[hidden]{display:none!important}
+#lz-qr-welcome{position:fixed;inset:0;z-index:99998;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(3,10,24,.62);backdrop-filter:blur(5px);-webkit-backdrop-filter:blur(5px)}
+#lz-qr-welcome .lz-welcome-card{width:min(100%,460px);padding:28px 26px 24px;border-radius:18px;background:#fff;color:#1b2a49;box-shadow:0 24px 70px rgba(0,0,0,.3);border:1px solid #e3eaf6;text-align:center;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}
+#lz-qr-welcome .lz-welcome-icon{width:54px;height:54px;margin:0 auto 14px;border-radius:50%;display:grid;place-items:center;background:#e9f8ef;color:#18864b;font-size:29px;font-weight:800}
+#lz-qr-welcome h2{margin:0 0 11px;font-size:23px;line-height:1.2;color:#1b2a49}
+#lz-qr-welcome p{margin:0 0 12px;font-size:15px;line-height:1.55;color:#475467}
+#lz-qr-welcome .lz-welcome-note{padding:11px 12px;border-radius:10px;background:#f0f5ff;color:#254477;font-size:13px;line-height:1.45;margin:15px 0 19px}
+#lz-qr-welcome button{border:0;border-radius:10px;background:#2d6cdf;color:#fff;padding:12px 22px;font-weight:700;font-size:14px;cursor:pointer;min-width:125px}
+#lz-qr-welcome button:hover{background:#245bc0}
+@media(max-width:480px){#lz-qr-welcome .lz-welcome-card{padding:24px 19px 20px}#lz-qr-welcome h2{font-size:21px}}
+
 </style>
 </head>
 
@@ -316,6 +329,17 @@ td.num,th.num{text-align:right}
   <div class="lz-pb-copy">
     <span class="lz-pb-label">Powered by</span>
     <span class="lz-pb-name">ELECT<span>RICITY</span></span>
+  </div>
+</div>
+
+
+<div id="lz-qr-welcome" hidden role="dialog" aria-modal="true" aria-labelledby="lz-welcome-title" aria-describedby="lz-welcome-description">
+  <div class="lz-welcome-card">
+    <div class="lz-welcome-icon" aria-hidden="true">✓</div>
+    <h2 id="lz-welcome-title">Good news — your QR code is ready!</h2>
+    <p id="lz-welcome-description">The LibraryZone parent QR code is now working. You can show the QR code displayed in your Parent Portal when you need to access the library system.</p>
+    <div class="lz-welcome-note">You do not need to carry your printed parent card with you anymore, as long as you can sign in and show your QR code on your phone.</div>
+    <button type="button" id="lz-welcome-close">Continue</button>
   </div>
 </div>
 
@@ -464,6 +488,14 @@ const app =
 const auth =
   firebase.auth(app);
 
+// Persist Firebase's authenticated session across refreshes and browser restarts.
+// Firebase stores its own auth state securely; do not save passwords in localStorage.
+const authPersistenceReady = auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+  .catch(error => {
+    console.error('Could not enable persistent Firebase sign-in:', error);
+    return false;
+  });
+
 const $ =
   id => document.getElementById(id);
 
@@ -543,14 +575,52 @@ function daysSince(value) {
 // QR Code
 // ---------------------------------------------------------
 
-function generateParentQR(user) {
+// The Index Card Generator's QR format includes the account password.
+// To keep that same QR after a refresh, this portal can optionally retrieve the
+// QR payload from this browser's localStorage. WARNING: browser localStorage is
+// not a secure vault; anyone with access to this browser/profile may read it.
+const PARENT_QR_STORAGE_KEY = 'libraryzone_parent_qr_credentials';
+let passwordForParentQR = '';
+
+function getStoredParentQRCredentials(user) {
+  try {
+    const raw = localStorage.getItem(PARENT_QR_STORAGE_KEY);
+    if (!raw) return null;
+    const data = JSON.parse(raw);
+    if (data && data.type === 'LIBRARY_ZONE_PARENT' && data.email && data.password &&
+        String(data.email).toLowerCase() === String(user.email || '').toLowerCase()) {
+      return data;
+    }
+  } catch (error) {
+    console.warn('Could not read saved parent QR credentials.', error);
+  }
+  return null;
+}
+
+function generateParentQR(user, password = passwordForParentQR) {
 
   $('qrcode').innerHTML = '';
+  if (!password) {
+    const saved = getStoredParentQRCredentials(user);
+    if (saved) password = saved.password;
+  }
+
+  // Firebase never reveals a password from its restored session. If the parent
+  // has not saved the matching QR payload on this device, show a clear message.
+  if (!password) {
+    $('qrcode').innerHTML = `
+      <div style="max-width:340px;padding:16px;color:#667085;font-size:13px;line-height:1.5;text-align:center">
+        To generate the matching QR code, sign out and sign in again. The QR contains your account password, so keep it private.
+      </div>`;
+    $('qrParentEmail').textContent = user.email || '';
+    return;
+  }
 
   const payload =
     JSON.stringify({
-      type: 'LIBRARYZONE_PARENT',
-      uid: user.uid
+      type: 'LIBRARY_ZONE_PARENT',
+      email: user.email || '',
+      password: password || ''
     });
 
   new QRCode(
@@ -1303,7 +1373,32 @@ function renderChildren(data) {
 // Load Parent Portal
 // ---------------------------------------------------------
 
-async function loadPortal(user) {
+function showQRWelcomeMessage() {
+  // Always show the QR welcome message after the logo introduction finishes.
+  const modal = $('lz-qr-welcome');
+  const intro = $('lz-intro');
+  if (!modal) return;
+  const show = () => {
+    if (intro && !intro.classList.contains('lz-done')) {
+      window.setTimeout(show, 250);
+      return;
+    }
+    modal.hidden = false;
+    const close = $('lz-welcome-close');
+    if (close) close.focus();
+  };
+  show();
+}
+
+const qrWelcomeClose = document.getElementById('lz-welcome-close');
+if (qrWelcomeClose) qrWelcomeClose.addEventListener('click', () => {
+  const modal = document.getElementById('lz-qr-welcome');
+  if (modal) modal.hidden = true;
+});
+// The message returns on every successful portal load until the parent closes it for that visit.
+
+
+async function loadPortal(user, password = passwordForParentQR) {
 
   $('loginCard')
     .classList
@@ -1327,7 +1422,7 @@ async function loadPortal(user) {
   $('qrParentName').textContent =
     'Parent';
 
-  generateParentQR(user);
+  generateParentQR(user, password);
 
 
   try {
@@ -1385,7 +1480,7 @@ async function loadPortal(user) {
 
 
     renderChildren(body);
-
+    showQRWelcomeMessage();
 
   } catch (error) {
 
@@ -1431,6 +1526,15 @@ function setMsg(message, success = false) {
 
 
 // ---------------------------------------------------------
+// Remember the parent email (not the password)
+// Firebase Auth LOCAL persistence keeps the authenticated session on this device.
+// ---------------------------------------------------------
+try {
+  const rememberedEmail = localStorage.getItem('libraryzone_parent_email');
+  if (rememberedEmail && !$('parentEmail').value) $('parentEmail').value = rememberedEmail;
+} catch (_) {}
+
+// ---------------------------------------------------------
 // Login
 // ---------------------------------------------------------
 
@@ -1448,9 +1552,27 @@ $('loginBtn').onclick = async () => {
   setMsg('Connecting to Firebase…', true);
 
   try {
+    // Keep the Firebase sign-in session on this device so parents do not need
+    // to enter their credentials every time they reopen the portal.
+    await authPersistenceReady;
+    // Remember email and save the QR payload so the matching QR can be rebuilt
+    // after a refresh. This stores the password in localStorage and is less secure.
+    try {
+      localStorage.setItem('libraryzone_parent_email', email);
+    } catch (_) {}
     const credential = await auth.signInWithEmailAndPassword(email, pw);
+    passwordForParentQR = pw;
+    try {
+      localStorage.setItem(PARENT_QR_STORAGE_KEY, JSON.stringify({
+        type: 'LIBRARY_ZONE_PARENT',
+        email: credential.user.email || email,
+        password: pw
+      }));
+    } catch (storageError) {
+      console.warn('Could not save QR credentials on this device.', storageError);
+    }
     setMsg('Signed in. Loading your LibraryZone information…', true);
-    await loadPortal(credential.user);
+    await loadPortal(credential.user, pw);
     setMsg('');
   } catch (error) {
     console.error('Parent sign-in failed:', error);
@@ -1494,7 +1616,11 @@ $('parentEmail')
 // ---------------------------------------------------------
 
 $('logoutBtn').onclick =
-  () => auth.signOut();
+  () => {
+    passwordForParentQR = '';
+    try { localStorage.removeItem(PARENT_QR_STORAGE_KEY); } catch (_) {}
+    auth.signOut();
+  };
 
 
 // ---------------------------------------------------------
@@ -1502,11 +1628,17 @@ $('logoutBtn').onclick =
 // ---------------------------------------------------------
 
 auth.onAuthStateChanged(
-  user => {
+  async user => {
+    // Ensure LOCAL persistence has been configured before handling the initial auth state.
+    await authPersistenceReady;
 
     if (user) {
-
-      loadPortal(user);
+      // Recover the QR payload from localStorage when Firebase restores the session.
+      if (!passwordForParentQR) {
+        const savedQR = getStoredParentQRCredentials(user);
+        if (savedQR) passwordForParentQR = savedQR.password;
+      }
+      loadPortal(user, passwordForParentQR);
 
     } else {
 
