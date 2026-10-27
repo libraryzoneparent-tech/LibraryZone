@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Library Zone</title>
+  <div>
+    <h1 style="color: black; font-size: 10px; text-align: right;">For any support: Email "libraryzone.sup@gmail.com", or Call "+52 (625)130 0044"</h1>
+  </div>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="css/styles.css">
+
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  
+  <!-- SheetJS for Excel parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- Barcode generation for the librarian card. The scanner is a USB/Bluetooth barcode scanner that types the barcode into the input field. -->
+</head>
+<body>
+
+<div id="lockedOverlay"></div>
+
+<!-- License modal -->
+<div id="licenseModal" aria-modal="true" role="dialog">
+  <div id="licenseCard">
+    <h2 style="margin:0 0 8px 0">License Verification</h2>
+    <div class="small" style="margin-bottom:12px">Enter your school code and license key to activate the application.</div>
+    <div style="font-size: 10px; color: black;">If you do not have a License Registration Code, please Email "libraryzone.sup@gmail.com" or Call "+52 (625)130 0044"</div>
+    <label>School Code</label>
+    <input id="schoolCode" type="text" placeholder="e.g., SCHOOL01" />
+
+    <label>License Key</label>
+    <input id="licenseKey" type="text" placeholder="XXXX-XXXX-XXXX-XXXX" />
+
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button id="activateBtn">
+        <span id="activateSpinner" class="spinner" style="display:none;"></span>
+        <span id="activateText">Activate</span>
+      </button>
+      <button class="secondary" id="demoBtn">Generate demo key</button>
+    </div>
+
+    <div id="licenseMsg" class="small" style="margin-top:10px;color:var(--muted)"></div>
+
+    <div class="small" style="margin-top:14px;color:#444">
+      License is validated online through Firebase. Internet connection required for activation.
+    </div>
+  </div>
+</div>
+
+<header>
+  <img class="lz-school-logo" src="assets/libraryzone-logo.png" alt="LibraryZone logo">
+  <div>
+    <h1>Library Zone</h1><div id="schoolNameDisplay" class="school-name-display" hidden></div>
+    <div class="muted">- That's the thing about books. They let you travel without moving your feet. — Jhumpa Lahiri.</div>
+    <div id="dbStatus" class="small" style="margin-top:3px">Database: connecting...</div>
+  </div>
+
+  <!-- Administrator access stays visible; additional role actions appear after authentication -->
+  <div id="roleBtnsHeader">
+    <button id="btnStudentView" class="roleBtn">Student view</button>
+    <button id="btnAdminView" class="roleBtn">Administrator</button>
+    <button id="btnreturnbooks" onclick="gotoreturnbook()" class="roleBtn">Return Books</button>
+  </div>
+
+  <div id="languageSwitcher" style="margin-left:auto;display:flex;align-items:center;gap:6px">
+    <label for="languageSelect" style="margin:0;font-size:12px;font-weight:600">Language</label>
+    <select id="languageSelect" style="padding:7px 9px;border-radius:8px;border:1px solid #ccd3df;background:#fff">
+      <option value="en-US">English (US)</option>
+      <option value="de-DE">Deutsch (Deutschland)</option>
+      <option value="es-MX">Español (México)</option>
+    </select>
+  </div>
+
+ 
+
+  <!-- center search under header -->
+  <div id="centerSearchWrap">
+    <input id="centerSearch" type="text" placeholder="Search books by title, author, barcode, keywords or location..." aria-label="Search books" />
+  </div>
+
+  <!-- welcome banner under search -->
+  <div id="welcomeBanner" aria-hidden="true">
+    <div style="display:flex;flex-direction:column;align-items:flex-start;">
+      <div class="title" id="welcomeTitle"></div>
+      <div class="subtitle" id="welcomeSubtitle"></div>
+    </div>
+    <!-- Logout button appears beside the welcome text when a student is logged in -->
+    <button id="studentLogoutBtn" class="logout-btn" style="display:none">Logout</button>
+  </div>
+</header>
+
+<!-- overlay for search results -->
+<div id="overlayBackdrop" role="dialog" aria-modal="true">
+  <div id="overlayPanel" role="document" aria-label="Search results">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <strong>Search results</strong>
+      <button class="secondary" onclick="closeOverlay()">Close</button>
+    </div>
+    <div id="overlayResults" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<div class="grid">
+
+  <!-- Left column -->
+  <div>
+
+    <!-- Student welcome screen: shown in Student View and hidden in Administrator mode. -->
+    <section id="studentWelcome" class="card student-welcome" aria-labelledby="studentWelcomeTitle">
+      <div class="student-welcome-content">
+        <img class="student-welcome-logo" src="assets/libraryzone-logo.png" alt="LibraryZone logo">
+        <div class="student-welcome-eyebrow">READ, LEARN AND GROW</div>
+        <h2 id="studentWelcomeTitle">Welcome to LibraryZone!</h2>
+        <p class="student-welcome-lead">Your next great read is waiting for you.</p>
+        <div class="student-welcome-instruction">
+          <div class="student-scan-icon" aria-hidden="true">
+            <svg viewBox="0 0 64 64"><path d="M8 18V10h12M44 10h12v8M8 46v8h12M56 46v8H44" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/><path d="M16 24v16M22 24v16M28 24v16M35 24v16M40 24v16M46 24v16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+          </div>
+          <div>
+            <h3>First, scan your student card</h3>
+            <p>Hold your library card under the barcode scanner to sign in and see your borrowing information.</p>
+          </div>
+        </div>
+        <div class="student-welcome-next">
+          <span class="welcome-step-number">1</span><span><b>Scan your card</b><small>Use the barcode scanner at the library desk.</small></span>
+          <span class="welcome-step-number">2</span><span><b>Find a book</b><small>Search by title, author, barcode, keyword, or location.</small></span>
+          <span class="welcome-step-number">3</span><span><b>Enjoy reading!</b><small>Ask the librarian if you need help borrowing a book.</small></span>
+        </div>
+        <div id="studentHistoryBox" class="lz-welcome-progress" style="display:none">
+          <div id="studentHistoryContent"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Administrator Dashboard -->
+    <section id="adminDashboard" class="card admin-dashboard-clean" style="display:none">
+      <div class="admin-clean-heading">
+        <div>
+          <div class="admin-eyebrow">LIBRARYZONE</div>
+          <h2>Administrator dashboard</h2>
+          <p>Manage the library from one place.</p>
+        </div>
+        <button type="button" id="adminDashboardLogoutBtn" class="secondary admin-clean-logout">Log out</button>
+      </div>
+
+      <div class="admin-clean-metrics">
+        <div class="admin-clean-metric"><span>Books</span><strong id="adminMetricBooks">—</strong></div>
+        <div class="admin-clean-metric"><span>On loan</span><strong id="adminMetricBorrowed">—</strong></div>
+        <div class="admin-clean-metric"><span>Students</span><strong id="adminMetricStudents">—</strong></div>
+        <div class="admin-clean-metric"><span>Parents</span><strong id="adminMetricParents">—</strong></div>
+      </div>
+
+      <div class="admin-clean-section">
+        <div class="admin-clean-section-heading">
+          <h3>Quick actions</h3>
+          <span>Common tasks</span>
+        </div>
+        <div class="admin-clean-actions">
+          <button type="button" onclick="openAdminStudentDialog()"><span class="admin-action-symbol">＋</span><span><b>Add student</b><small>Register a student</small></span></button>
+          <button type="button" onclick="openAdminParentDialog()"><span class="admin-action-symbol">＋</span><span><b>Add parent</b><small>Create an account and link children</small></span></button>
+        </div>
+      </div>
+
+      <div class="admin-clean-section admin-clean-tools">
+        <div class="admin-clean-section-heading">
+          <h3>Library management</h3>
+          <span>Open a section when needed</span>
+        </div>
+        <div class="admin-clean-management">
+          <button type="button" onclick="showAdminData('adminSettingsCard')">Borrow / return <span>›</span></button>
+          <button type="button" onclick="showAdminData('statisticsCard')">Library statistics <span>›</span></button>
+          <button type="button" onclick="showAdminData('localStorageCard')">Backup &amp; restore <span>›</span></button>
+          
+          <button type="button" onclick="showAdminData('quickAddCard')">Add a book <span>›</span></button>
+          <button type="button" onclick="showAdminData('bulkImportCard')">Bulk import <span>›</span></button>
+          <button type="button" onclick="showAdminData('historyCard')">Reading history <span>›</span></button>
+          <button type="button" onclick="showAdminData('booksCard')">Book catalogue <span>›</span></button>
+          <button type="button" onclick="showAdminData('studentsCard')">Student records <span>›</span></button>
+          <button type="button" onclick="showAdminData('databaseAccessCard')">Database access <span>›</span></button>
+          <button type="button" onclick="showAdminData('adminPanel')">Library settings <span>›</span></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Statistics Cards (admin only) -->
+    <div id="statisticsCard" style="display:none;" class="card admin-section-modal">
+      <div>
+        <h1 style="color: red;"><em>Always make sure, that you close the Administrator mode for student use!</em></h1>
+      </div>
+      <div class="lz-stats-heading">
+        <div><h2 style="margin:0 0 5px 0">Library at a glance</h2>
+        <p class="small" style="margin:0">A live overview of borrowing, collection use, and student reading.</p></div>
+        <span class="lz-live-pill"><span></span> Library overview</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <h3 id="totalBorrows">0</h3>
+          <p>Total Borrows</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="activeBorrows">0</h3>
+          <p>Active Borrows</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="totalBooks">0</h3>
+          <p>Total Books</p>
+        </div>
+        <div class="stat-card">
+          <h3 id="totalStudents">0</h3>
+          <p>Total Students</p>
+        </div>
+      </div>
+      
+      <div style="display:flex;gap:8px;margin-bottom:12px">
+        <button class="secondary" onclick="guarded(showTopBooks)">Most Borrowed Books</button>
+        <button class="secondary" onclick="guarded(showTopReaders)">Top Readers</button>
+      </div>
+      
+      <div id="statisticsContent"></div>
+    </div>
+
+    <!-- Borrow / Return (actions) -->
+    <div id="adminSettingsCard" style="margin-top:12px;display:none" class="card admin-section-modal">
+      <h2 style="margin:0 0 8px 0">Borrow / Return Book</h2>
+      <div class="small" style="margin-bottom:8px">Use the Borrow Book button to open a borrow dialog. Returns can be handled from the Return dialog or student history.</div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button id="borrowBtn">Borrow Book</button>
+        <button id="returnBtn" class="secondary" onclick="guarded(openReturnDialog)">Return Book</button>
+        <button class="secondary" onclick="guarded(viewLateBooks)">View Late Books</button>
+      </div>
+      <div id="borrowMsg" class="note" style="margin-top:10px"></div>
+    </div>
+
+    <!-- Quick Add Book (admin only) -->
+    <div id="quickAddCard" class="card" style="margin-top:12px;display:none">
+      <h2 style="margin:0 0 8px 0">Quick Add Book</h2>
+      <label>Barcode</label><input id="book_barcode" type="text" />
+      <label>Title</label><input id="book_title" type="text" />
+      <label>Author</label><input id="book_author" type="text" />
+      <label>Pages</label><input id="book_pages" type="number" min="1" />
+      <label>Level</label>
+      <select id="book_level">
+        <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option>
+        <option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option>
+        <option value="9">9</option><option value="10">10</option>
+      </select>
+      <label>Location</label><input id="book_location" type="text" placeholder="e.g., Shelf A3, Room 12" />
+      <label>Keywords</label><input id="book_keywords" type="text" placeholder="comma-separated keywords e.g. science, chemistry, 9th" />
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button onclick="guarded(addBookFromUI)">Add Book</button>
+        <button class="secondary" onclick="guarded(seedSampleBooks)">Seed Sample</button>
+      </div>
+      <div id="addBookMsg" class="note"></div>
+    </div>
+
+    <!-- Bulk import (admin only) -->
+    <div id="bulkImportCard" style="margin-top:12px;display:none" class="card admin-section-modal">
+      <h2 style="margin:0 0 8px 0">Bulk Import from Excel</h2>
+
+      <div style="margin-bottom:10px;">
+        <strong>Students Import</strong>
+        <div id="studentDrop" class="dropzone" onclick="triggerFile('studentFile')">Drop students Excel here or click to select file</div>
+        <input id="studentFile" type="file" accept=".xlsx,.xls,.csv" style="display:none" />
+        <div class="small">Recommended headers: studentId, name, grade</div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <strong>Books Import</strong>
+        <div id="bookDrop" class="dropzone" onclick="triggerFile('bookFile')">Drop books Excel here or click to select file</div>
+        <input id="bookFile" type="file" accept=".xlsx,.xls,.csv" style="display:none" />
+        <div class="small">Recommended headers: barcode, title, author, pages, level (1-10), available, keywords, location (optional)</div>
+      </div>
+
+      <div id="importMsg" class="note"></div>
+    </div>
+
+    <!-- Local Cache Backup (admin only) -->
+    <div id="localStorageCard" class="card admin-storage-only" style="margin-top:12px;display:none;">
+      <h2 style="margin:0 0 8px 0">Local Cache Data</h2>
+      <div class="small" style="margin-bottom:10px">Export the local cache as a backup. PostgreSQL is the primary database for library data.</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button onclick="guarded(exportLocalStorageData)">Export Local Storage</button>
+        <button class="secondary" onclick="guarded(triggerLocalStorageImport)">Import Local Storage</button>
+        <button class="secondary" onclick="guarded(loadStoredDataIntoApp)">Reload Cached Data</button>
+      </div>
+      <input id="localStorageImportFile" type="file" accept=".json,application/json" style="display:none" />
+      <div id="localStorageMsg" class="note"></div>
+    </div>
+
+    <!-- History / Stats (admin only) -->
+    <div id="historyCard" class="card" style="margin-top:12px;display:none">
+      <h2 style="margin:0 0 8px 0">Reading Stats & History</h2>
+      <div class="flex-row" style="margin-bottom:8px">
+        <button onclick="guarded(renderHistory)">Show All History</button>
+        <button class="secondary" onclick="guarded(renderStudentStats)">Student Stats</button>
+        <button class="secondary" onclick="guarded(viewLateBooks)">View Late Books</button>
+      </div>
+      <div id="historyArea" class="note"></div>
+    </div>
+
+  </div>
+
+  <!-- Right column -->
+  <div>
+
+    <!-- Student panel -->
+    <div id="studentPanel" class="card">
+      <h3 style="margin:0 0 8px 0">My Reading</h3>
+
+      <!-- my borrows displayed on top -->
+      <div id="myBorrowsTop" class="small"></div>
+
+      <!-- student's personal history & pages summary -->
+
+
+      <hr style="margin:12px 0">
+
+
+      
+    </div>
+
+    <!-- Admin login / panel -->
+    <div class="card admin-only" id="adminCard">
+      <h2 style="margin:0 0 8px 0">Administrator</h2>
+
+      <div id="adminLoginArea">
+        <label>Admin ID</label>
+        <input id="adminId" type="text" placeholder="ADMINISTRATOR_LOGIN" />
+        <label>Admin Password</label>
+        <input id="adminPass" type="password" placeholder="enter admin password" />
+        <div style="display:flex;gap:8px;margin-top:8px">
+          <button id="adminLoginBtn">Login</button>
+          
+        </div>
+       
+      </div>
+
+      <div id="adminPanel" style="display:none;margin-top:12px">
+        <label>Max books per student</label><input id="cfg_max_books" type="number" />
+        <label>Max borrow days</label><input id="cfg_max_days" type="number" />
+        <label>Weekly overdue fee for students (currency)</label><input id="cfg_weekly_fee" type="number" step="0.01" />
+        <label>Weekly borrowing fee for parents (currency)</label><input id="cfg_parent_weekly_fee" type="number" min="0" step="0.01" />
+        <label for="cfg_school_name">School name</label>
+        <input id="cfg_school_name" type="text" placeholder="e.g., Gnadenburg Schule" maxlength="120" />
+        <div class="small">This name appears on the student welcome screen and can be changed at any time.</div>
+        <label>Admin password (change)<label style="color: red; size: 6px;">If you change the Password, it is not recoverable. So please make sure about the Password. <em>If, in case you forget it, you can call support for any asistance.</em></label></label><input id="cfg_admin_password" type="password" />
+
+        <div id="librarianCardAccess">
+          <strong>Librarian Card Access</strong>
+          <div class="small" style="margin-top:4px">Enter the information from the librarian barcode card. You can type the barcode manually or scan it with the barcode scanner into the barcode field. No camera or QR scanner is used.</div>
+          <label>Librarian name</label>
+          <input id="cfg_librarian_card_name" type="text" placeholder="e.g. Maria Lopez" />
+          <label>Librarian card code / barcode</label>
+          <input id="cfg_librarian_card_code" type="text" placeholder="Scan or enter the card barcode" autocomplete="off" />
+          <label style="display:flex;align-items:center;gap:8px;margin-top:10px;color:#222">
+            <input id="cfg_librarian_card_enabled" type="checkbox" checked style="width:auto;margin:0" />
+            Enable this librarian card for Administrator access
+          </label>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button type="button" onclick="guarded(saveLibrarianCardSettings)">Save Librarian Card</button>
+            <button type="button" class="secondary" onclick="document.getElementById('cfg_librarian_card_code').value='';document.getElementById('cfg_librarian_card_name').value='';document.getElementById('cfg_librarian_card_enabled').checked=true;">Clear</button>
+          </div>
+          <div id="librarianCardSettingsMsg" class="small" style="margin-top:8px"></div>
+        </div>
+
+        <hr style="margin:12px 0">
+        <strong>Level Colors</strong>
+        <div class="small">Choose a color for each level (1-10). Colors appear as level badges in lists and search results.</div>
+        <div id="levelColorsWrap" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end">
+          <div style="flex:1;">
+            <!-- Admin: quick student login -->
+            <div style="margin-top:6px">
+              <strong>Quick student login</strong>
+              <div class="small">Type a student ID here to sign that student in (for testing or manual operations)</div>
+              <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+                <input id="adminQuickStudentId" type="text" placeholder="Enter student ID e.g. STU1001" style="flex:1" />
+                <button id="adminQuickStudentBtn" class="secondary">Login student</button>
+              </div>
+              <hr style="margin:12px 0">
+              <strong>People &amp; accounts</strong>
+              <div class="small">Add students and parents through guided dialogs. Parent accounts can be linked to one or more students.</div>
+              <div class="admin-people-actions">
+                <button type="button" onclick="openAdminStudentDialog()">＋ Add student</button>
+                <button type="button" class="secondary" onclick="openAdminParentDialog()">＋ Add parent</button>
+              </div>
+              <div id="adminAddStudentMsg" class="small" role="status" aria-live="polite"></div>
+              <div id="adminParentPortalMsg" class="small" role="status" aria-live="polite"></div>
+              <div id="adminLegacyStudentFields" style="display:none" aria-hidden="true">
+                <input id="adminAddStudentId" type="text"><input id="adminAddStudentName" type="text"><input id="adminAddStudentGrade" type="text">
+                <select id="adminAddStudentRole"><option value="student">Student</option><option value="parent">Parent</option></select>
+                <select id="adminAddStudentParent"><option value="">No parent assigned</option></select>
+                <input id="adminAddStudentWeeklyFee" type="number">
+                <input id="adminAddParentEmail" type="email"><input id="adminAddParentPassword" type="password">
+                <button id="adminAddStudentBtn" type="button">Add student</button>
+                <button id="adminAddStudentClear" type="button">Clear</button>
+              </div>
+              <hr style="margin:12px 0">
+              <span id="maintenanceCard" class="admin-anchor"></span><strong>Maintenance</strong>
+              <div class="small">Dangerous actions for administrators. Each button requires confirmation.</div>
+              <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;align-items:center">
+                <button id="adminClearHistoryBtn" class="secondary">Clear borrow history</button>
+                <button id="adminClearStudentsBtn" class="secondary">Clear student list</button>
+                <button id="adminClearBooksBtn" class="secondary">Clear book list</button>
+                
+                
+              </div>
+              <div id="adminQuickStudentMsg" class="small" style="margin-top:8px"></div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button onclick="guarded(saveAdminSettings)">Save Settings</button>
+            <button class="secondary" id="adminLogoutBtn" style="display:none">Logout Admin</button>
+          </div>
+        </div>
+        <div class="small">Admin-only controls borrowing rules, colors and fees.</div>
+      </div>
+    </div>
+
+    <section id="databaseAccessCard" class="card admin-database-launcher" style="display:none;margin-top:12px">
+      <div class="admin-database-launcher-head">
+        <div><h3>Database access</h3><p>Select the record area you want to open.</p></div>
+        <button type="button" class="secondary" onclick="hideAdminData()">Back to dashboard</button>
+      </div>
+      <div class="admin-database-buttons">
+        <button type="button" onclick="showAdminData('studentsCard')">Student records</button>
+        <button type="button" onclick="showAdminData('booksCard')">Book catalogue</button>
+      </div>
+    </section>
+
+    <!-- Students list (admin only) -->
+    <div style="margin-top:12px;display:none" id="studentsCard" class="card admin-section-modal">
+      <h3 style="margin:0 0 8px 0">Students</h3>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="searchStudent" type="text" placeholder="filter by id or name" />
+      </div>
+      <div id="studentsList" style="max-height:240px;overflow:auto"></div>
+    </div>
+
+    <!-- Books list -->
+    <div style="margin-top:12px;display:none" id="booksCard" class="card admin-section-modal">
+      <h3 style="margin:0 0 8px 0">Books</h3>
+      <div style="display:flex;gap:8px;margin-bottom:8px">
+        <input id="searchBook" type="text" placeholder="filter title, author, barcode, keywords or location" />
+        <button class="secondary" onclick="guarded(renderAvailableBooks)">Show Available</button>
+      </div>
+      <div id="booksList" style="max-height:300px;overflow:auto"></div>
+    </div>
+
+  </div>
+</div>
+
+
+
+<div id="adminSectionModalBackdrop" class="admin-section-modal-backdrop" style="display:none" role="dialog" aria-modal="true" aria-labelledby="adminSectionModalTitle">
+  <div class="admin-section-modal-window">
+    <div class="admin-section-modal-header"><div><div class="admin-eyebrow">LIBRARYZONE ADMIN</div><h2 id="adminSectionModalTitle">Section</h2></div><button type="button" class="secondary" onclick="closeAdminSectionModal()">Close</button></div>
+    <div id="adminSectionModalBody" class="admin-section-modal-body"></div>
+  </div>
+</div>
+</div>
+
+  <!-- Administrator: Edit Student Borrows -->
+  <div id="studentBorrowEditorModal" role="dialog" aria-modal="true">
+    <div id="studentBorrowEditorCard">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px">
+        <div>
+          <h3 id="studentBorrowEditorTitle" style="margin:0">Borrow Records</h3>
+          <div id="studentBorrowEditorSubtitle" class="small" style="margin-top:4px"></div>
+        </div>
+        <button class="secondary" id="studentBorrowEditorClose">Close</button>
+      </div>
+      <div id="studentBorrowEditorRows" style="margin-top:12px"></div>
+    </div>
+  </div>
+
+
+<!-- Administrator: Add Student Dialog -->
+<div id="adminStudentDialog" class="assignment-modal" role="dialog" aria-modal="true" aria-labelledby="adminStudentDialogTitle" style="display:none">
+  <div class="assignment-modal-card admin-form-card">
+    <div class="assignment-modal-heading">
+      <div><h3 id="adminStudentDialogTitle">Add a student</h3><p class="small">Enter the student's school details and optionally connect a parent account.</p></div>
+      <button type="button" class="secondary" onclick="closeAdminPeopleDialogs()">Close</button>
+    </div>
+    <label for="dlgStudentId">Student ID</label><input id="dlgStudentId" autocomplete="off" placeholder="e.g. STU2001">
+    <label for="dlgStudentName">Full name</label><input id="dlgStudentName" autocomplete="name" placeholder="Student's full name">
+    <label for="dlgStudentGrade">Grade / group</label><input id="dlgStudentGrade" placeholder="e.g. 2° Secundaria">
+    <label for="dlgStudentParent">Parent account (optional)</label><select id="dlgStudentParent"><option value="">No parent assigned</option></select>
+    <div id="dlgStudentMsg" class="small" role="status" aria-live="polite"></div>
+    <div class="assignment-modal-actions"><button type="button" onclick="saveStudentFromDialog()">Save student</button><button type="button" class="secondary" onclick="closeAdminPeopleDialogs()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Administrator: Add Parent Dialog -->
+<div id="adminParentDialog" class="assignment-modal" role="dialog" aria-modal="true" aria-labelledby="adminParentDialogTitle" style="display:none">
+  <div class="assignment-modal-card admin-form-card">
+    <div class="assignment-modal-heading">
+      <div><h3 id="adminParentDialogTitle">Add a parent</h3><p class="small">Create the parent record and portal login, then link the children enrolled at your school.</p></div>
+      <button type="button" class="secondary" onclick="closeAdminPeopleDialogs()">Close</button>
+    </div>
+    <label for="dlgParentId">Parent ID</label><input id="dlgParentId" autocomplete="off" placeholder="e.g. PAR2001">
+    <label for="dlgParentName">Parent / guardian full name</label><input id="dlgParentName" autocomplete="name" placeholder="Full name">
+    <label for="dlgParentEmail">Email for parent portal</label><input id="dlgParentEmail" type="email" autocomplete="email" placeholder="parent@example.com">
+    <label for="dlgParentPassword">Temporary portal password</label><input id="dlgParentPassword" type="password" autocomplete="new-password" minlength="6" placeholder="At least 6 characters">
+    <label for="dlgParentFee">Weekly borrowing fee (if applicable)</label><input id="dlgParentFee" type="number" min="0" step="0.01" value="0">
+    <label for="dlgParentChildren">Children at this school</label><select id="dlgParentChildren" multiple size="5" aria-describedby="dlgParentChildrenHelp"></select>
+    <div id="dlgParentChildrenHelp" class="small">Select one or more students. Use Ctrl (Windows) or Command (Mac) to select multiple students.</div>
+    <div id="dlgParentMsg" class="small" role="status" aria-live="polite"></div>
+    <div class="assignment-modal-actions"><button type="button" onclick="saveParentFromDialog()">Create parent &amp; link students</button><button type="button" class="secondary" onclick="closeAdminPeopleDialogs()">Cancel</button></div>
+  </div>
+</div>
+
+<!-- Book Assignment Modal (administrator) -->
+<div id="bookAssignmentModal" class="assignment-modal" role="dialog" aria-modal="true" aria-labelledby="bookAssignmentTitle" style="display:none">
+  <div class="assignment-modal-card">
+    <div class="assignment-modal-heading">
+      <div>
+        <h3 id="bookAssignmentTitle">Assign Book to Student</h3>
+        <p class="small">Choose the student and scan or enter the book barcode. The book will be registered as borrowed.</p>
+      </div>
+      <button type="button" class="secondary" onclick="closeBookAssignmentDialog()" aria-label="Close dialog">Close</button>
+    </div>
+    <label for="assignBookStudent">Student</label>
+    <select id="assignBookStudent"><option value="">Choose a student</option></select>
+    <label for="assignBookBarcode">Book barcode</label>
+    <input id="assignBookBarcode" type="text" autocomplete="off" placeholder="Scan or enter barcode">
+    <div id="assignBookMsg" class="small assign-book-message" role="status" aria-live="polite"></div>
+    <div class="assignment-modal-actions">
+      <button type="button" id="assignBookSave" onclick="saveBookAssignment()">Assign Book</button>
+      <button type="button" class="secondary" onclick="closeBookAssignmentDialog()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Borrow Modal -->
+<div id="borrowModal" role="dialog" aria-modal="true">
+  <div id="borrowCard">
+    <h3>Borrow Book</h3>
+    <div class="small" id="borrowModalHint" style="margin-bottom:8px">Scan or type the book barcode below and click Borrow</div>
+    <label for="modalBorrowBarcode">Book Barcode</label>
+    <input id="modalBorrowBarcode" type="text" placeholder="BK0001" autocomplete="off" />
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button id="modalBorrowOk">Borrow</button>
+      <button class="secondary" id="modalBorrowCancel">Cancel</button>
+    </div>
+    <div id="modalBorrowMsg" class="small" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- Return Modal -->
+<div id="returnModal" role="dialog" aria-modal="true" style="display:none;position:fixed;inset:0;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:13000">
+  <div id="returnCard" style="width:420px;background:#fff;padding:16px;border-radius:10px;box-shadow:0 12px 40px rgba(0,0,0,0.25)">
+    <h3>Return Book</h3>
+    <div class="small" style="margin-bottom:8px">Scan or type the book barcode below and click Return</div>
+    <label for="modalReturnBarcode">Book Barcode</label>
+    <input id="modalReturnBarcode" type="text" placeholder="BK0001" autocomplete="off" />
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button id="modalReturnOk">Return</button>
+      <button class="secondary" id="modalReturnCancel">Cancel</button>
+    </div>
+    <div id="modalReturnMsg" class="small" style="margin-top:8px"></div>
+  </div>
+</div>
+
+<!-- Student Registration Modal -->
+<div id="modal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.35)">
+  <div style="width:480px;background:#fff;padding:16px;border-radius:10px">
+    <h3 style="margin-top:0">Register Student</h3>
+    <label>Student ID</label><input id="reg_id" type="text" />
+    <label>Full Name</label><input id="reg_name" type="text" />
+    <label>Grade</label><input id="reg_grade" type="text" />
+    <label>Type</label><select id="reg_role"><option value="student">Student</option><option value="parent">Parent</option></select>
+    <label id="reg_fee_label" style="display:none">Weekly Borrow Fee</label><input id="reg_weekly_fee" type="number" min="0" step="0.01" value="0" style="display:none" />
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="guarded(registerStudent)">Register</button>
+      <button class="secondary" onclick="closeModal()">Cancel</button>
+    </div>
+    <div id="regMsg" class="note"></div>
+  </div>
+</div>
+
+<!-- Admin password modal (used from header) -->
+<div id="adminPassModal" style="position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.35);z-index:12000">
+  <div style="width:360px;background:#fff;padding:16px;border-radius:10px">
+    <h3 style="margin:0 0 8px 0">Administrator sign-in</h3>
+    <div class="small" style="margin-bottom:10px">Enter administrator password to unlock admin mode.</div>
+    <label>Admin Password</label>
+    <input id="adminPassPrompt" type="password" autocomplete="current-password" />
+    <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end">
+      <button type="submit" id="adminPassOk">OK</button>
+      <button id="adminPassCancel" class="secondary">Cancel</button>
+    </div>
+    <div id="adminPassMsg" class="small" style="margin-top:8px;color:var(--danger)"></div>
+  </div>
+</div>
+<!-- Notification box -->
+<div id="notifyBox" role="status" aria-live="polite" aria-atomic="true">
+  <div style="display:flex;align-items:flex-start;gap:10px">
+    <span class="notify-dot" aria-hidden="true"></span>
+    <div style="flex:1">
+      <div class="title" id="notifyTitle">Book borrowed</div>
+      <div class="msg" id="notifyMsg">Student X borrowed "Book Title"</div>
+      <div class="actions">
+        <button class="btn-dismiss" onclick="dismissNotification()">Dismiss</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Generic transient message box -->
+<div id="msgBox" role="status" aria-live="polite" aria-atomic="true" class="info">
+  <div class="msg-title" id="msgBoxTitle"></div>
+  <div class="msg-body" id="msgBoxBody"></div>
+  <div class="msg-actions"><button class="btn-close" onclick="hideMsgBox()">Dismiss</button></div>
+</div>
+
+<!-- Screen-reader live region -->
+<div class="sr-only" id="srLive"></div>
+
+<script src="js/app.js?v=2"></script>
+<div id="adminEntryLoading" class="admin-entry-loading" style="display:none" role="status" aria-live="polite"><div class="admin-entry-loading-card"><div class="admin-entry-logo-wrap"><span class="admin-entry-logo-text" aria-label="LibraryZone">LZ</span></div><div class="admin-entry-spinner" aria-hidden="true"></div><h2>Entering Administrator Mode</h2><p>Preparing your library dashboard…</p></div></div>
+</body>
+</html>
