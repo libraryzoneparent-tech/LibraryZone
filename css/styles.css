@@ -1,0 +1,573 @@
+:root{--card-bg:#fff;--accent:#2d6cdf;--muted:#666;--danger:#c0392b;--ok:#2e8b57}
+    body{font-family:Inter,system-ui,Arial;margin:16px;background:#f3f6fb;color:#222}
+    header{display:flex;align-items:center;gap:16px;margin-bottom:8px;position:relative;flex-wrap:wrap}
+    h1{margin:0;font-size:20px;color:var(--accent)}
+    .grid{display:grid;grid-template-columns:1fr 420px;gap:16px;align-items:start}
+    .card{background:var(--card-bg);padding:14px;border-radius:8px;box-shadow:0 1px 3px rgba(20,30,60,0.06)}
+    label{display:block;font-size:13px;margin-top:8px;color:var(--muted)}
+    input[type="text"],input[type="password"],input[type="number"],select,textarea{width:100%;padding:8px 10px;border:1px solid #e0e6ef;border-radius:6px;margin-top:6px}
+    button{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:6px;cursor:pointer}
+    button.secondary{background:#fff;color:var(--accent);border:1px solid #d7e1ff}
+    .muted{color:var(--muted);font-size:13px}
+    table{width:100%;border-collapse:collapse;margin-top:8px}
+    th,td{padding:6px 8px;border-bottom:1px solid #f0f3f8;font-size:13px;text-align:left}
+    .small{font-size:12px;color:var(--muted)}
+    .right{text-align:right}
+    .danger{color:var(--danger);font-weight:600}
+    .ok{color:var(--ok);font-weight:600}
+    .dropzone{border:2px dashed #dbe9ff;padding:12px;border-radius:8px;text-align:center;background:#f9fbff;color:#274a9b;cursor:pointer}
+    .dropzone.dragover{background:#e6f0ff;border-color:#8fb4ff}
+    #licenseModal{position:fixed;inset:0;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:9999}
+    #licenseCard{width:560px;background:#fff;padding:20px;border-radius:10px;box-shadow:0 8px 30px rgba(0,0,0,0.3)}
+    #lockedOverlay{position:fixed;inset:0;z-index:900;background:rgba(255,255,255,0.9);display:block}
+    .license-view{font-size:13px;background:#f7fbff;padding:10px;border-radius:6px;margin-top:8px}
+    .flex-row{display:flex;gap:8px;align-items:center}
+    /* Notification */
+    #notifyBox { position: fixed; right: 20px; bottom: 20px; min-width: 280px; max-width: 380px; background: linear-gradient(180deg,#fff,#f0f8ff); border-left:6px solid var(--accent); padding:14px 16px; border-radius:10px; box-shadow:0 10px 30px rgba(16,32,80,0.12); display:none; z-index:12000; transform-origin:bottom right; font-size:14px; color:#0b2a66; }
+    #notifyBox.show { display:block; animation:notifyIn 450ms cubic-bezier(.2,.9,.2,1); }
+    @keyframes notifyIn { from{ transform:translateY(18px) scale(.98); opacity:0 } to{ transform:translateY(0) scale(1); opacity:1 } }
+    #notifyBox .title{font-weight:700;margin-bottom:6px}
+    #notifyBox .msg{color:var(--muted);margin-bottom:8px}
+    #notifyBox .actions{display:flex;gap:8px;justify-content:flex-end}
+    #notifyBox .btn-dismiss{background:#fff;color:var(--accent);border:1px solid #d7e1ff;padding:6px 10px;border-radius:6px}
+    .notify-dot{width:10px;height:10px;border-radius:50%;background:var(--accent);display:inline-block;margin-right:8px;vertical-align:middle;box-shadow:0 4px 12px rgba(45,108,223,0.28)}
+    .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+    /* center search now below header text */
+    #centerSearchWrap{ width:560px; max-width:calc(100% - 40px); margin:8px 0 4px 0; order:3; }
+    #centerSearchWrap input{ width:100%; box-shadow:0 6px 24px rgba(16,32,80,0.08); padding:10px 12px; font-size:14px }
+    /* welcome banner moved under the search bar */
+    #welcomeBanner { width:100%; text-align:center; margin-bottom:10px; order:4; display:flex; align-items:center; justify-content:center; gap:12px; }
+    #welcomeBanner .title { font-size:18px; color:var(--accent); font-weight:700 }
+    #welcomeBanner .subtitle { font-size:13px; color:var(--muted); margin-top:4px }
+    /* logout button next to welcome */
+    .logout-btn { background:#fff; color:var(--accent); border:1px solid #d7e1ff; padding:6px 10px; border-radius:8px; cursor:pointer; font-size:13px; }
+    /* overlay results */
+    #overlayBackdrop{ position:fixed; inset:0; background:rgba(10,15,30,0.28); display:none; z-index:10000; align-items:flex-start; justify-content:center; padding-top:90px }
+    #overlayPanel{ width:760px; max-width:95%; background:rgba(255,255,255,0.98); border-radius:10px; padding:14px; box-shadow:0 20px 60px rgba(10,20,40,0.4); max-height:calc(100vh - 140px); overflow:auto; }
+    #overlayPanel table{ background:transparent; }
+    /* student panel */
+    #studentPanel { display:block; position:relative; }
+    #myBorrowsTop { margin-bottom:12px; }
+    #studentHistoryBox { margin-top:12px; font-size:13px; background:#fbfdff;padding:10px;border-radius:8px; }
+    .smallbtn{ background:transparent;border:0;color:var(--accent);cursor:pointer;padding:6px 8px;border-radius:6px }
+    /* header role buttons */
+    #roleBtnsHeader{ margin-left:auto; display:none; gap:8px; order:2 }
+    .roleBtn{ padding:6px 10px; border-radius:6px; border:1px solid transparent; background:#fff; color:var(--accent); cursor:pointer }
+    .roleBtn.active{ background:linear-gradient(135deg,var(--accent),#8fb4ff); color:#fff }
+    /* borrow modal */
+    #borrowModal{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,0.35); z-index:13000 }
+    #borrowCard{ width:420px; background:#fff; padding:16px; border-radius:10px; box-shadow:0 12px 40px rgba(0,0,0,0.25) }
+    /* Transient message box (generic) */
+    #msgBox {
+      display:none;
+      position: fixed;
+      right: 20px;
+      top: 20px;
+      min-width: 280px;
+      max-width: 420px;
+      border-radius: 10px;
+      padding: 12px 14px;
+      box-shadow: 0 12px 30px rgba(16,32,80,0.12);
+      z-index: 14000;
+      color: #07204b;
+      background: linear-gradient(180deg,#ffffff,#f0f8ff);
+      border-left: 6px solid var(--accent);
+      font-size: 14px;
+    }
+    #msgBox.show { display:block; animation:notifyIn 300ms ease; }
+    #msgBox .msg-title { font-weight:700; margin-bottom:6px; }
+    #msgBox.info { border-left-color: var(--accent); color:#07204b; }
+    #msgBox.error { border-left-color: var(--danger); color:#5a1f1f; background: linear-gradient(180deg,#fff,#fff8f8); }
+    #msgBox .msg-body { color: var(--muted); margin-bottom:8px; }
+    #msgBox .msg-actions { display:flex; justify-content:flex-end; gap:8px; }
+    #msgBox .btn-close { background:#fff;color:var(--accent);border:1px solid #d7e1ff;padding:6px 10px;border-radius:6px; cursor:pointer }
+    /* Loading spinner */
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid var(--accent);
+      border-radius: 50%;
+      width: 24px;
+      height: 24px;
+      animation: spin 1s linear infinite;
+      display: inline-block;
+      margin-right: 8px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    /* Administrator student borrow editor */
+    #studentBorrowEditorModal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.42);z-index:15000}
+    #studentBorrowEditorCard{width:900px;max-width:95%;max-height:88vh;overflow:auto;background:#fff;padding:18px;border-radius:12px;box-shadow:0 18px 60px rgba(0,0,0,.28)}
+    .borrow-edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .borrow-edit-row{border:1px solid #e5eaf2;border-radius:9px;padding:12px;margin-top:10px;background:#fbfdff}
+    .borrow-edit-row input,.borrow-edit-row select{width:100%;box-sizing:border-box}
+    .borrow-edit-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;margin-top:10px}
+    .borrow-edit-cancel{background:#fff;color:var(--danger);border:1px solid #e5b7b2}
+    @media(max-width:700px){.borrow-edit-grid{grid-template-columns:1fr}}
+
+    /* Statistics cards */
+    .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 16px; margin-bottom: 20px; }
+    .stat-card { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 8px; text-align: center; }
+    .stat-card h3 { margin: 0 0 8px 0; font-size: 2rem; }
+    .stat-card p { margin: 0; opacity: 0.9; }
+    .borrow-count { background: #e0f2fe; color: #0277bd; padding: 2px 6px; border-radius: 12px; font-size: 11px; font-weight: 600; margin-left: 8px; }
+    .note { margin-top: 8px; font-size: 13px; }
+    /* Librarian barcode card access */
+    #btnScanLibrarian { background:#fff; color:var(--accent); border:1px solid #cfdcff; }
+    #librarianCardAccess { background:linear-gradient(180deg,#f8fbff,#fff); border:1px solid #dbe6fb; border-radius:10px; padding:12px; margin-top:12px; }
+    .librarian-card-preview { width:340px; max-width:100%; min-height:190px; margin:12px auto; padding:18px; border-radius:14px; background:linear-gradient(135deg,#173b78,#2d6cdf); color:#fff; box-shadow:0 10px 30px rgba(24,55,110,.2); display:flex; align-items:center; justify-content:space-between; gap:14px; }
+    .librarian-card-preview .barcode-wrap { background:#fff; padding:10px; border-radius:8px; flex:0 0 auto; width:190px; }
+    .librarian-card-preview .barcode-wrap svg { display:block; width:100%; height:auto; }
+    .librarian-card-title { font-weight:800; font-size:20px; letter-spacing:.4px; }
+    .librarian-card-code { font-family:monospace; font-size:12px; margin-top:8px; word-break:break-all; opacity:.95; }
+    #librarianScannerModal { position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.55); z-index:16000; }
+    #librarianScannerCard { width:560px; max-width:94%; background:#fff; padding:18px; border-radius:14px; box-shadow:0 20px 70px rgba(0,0,0,.3); }
+        #librarianScanStatus { min-height:20px; }
+    .scanner-actions { display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap; margin-top:10px; }
+    @media print { body * { visibility:hidden !important; } #printLibrarianCard, #printLibrarianCard * { visibility:visible !important; } #printLibrarianCard { position:absolute !important; left:0; top:0; } }
+  
+/* Improved registration inputs */
+#modal input, #modal select, #modal textarea,
+#adminAddStudentId, #adminAddStudentName, #adminAddStudentGrade,
+#adminAddStudentRole, #adminAddStudentWeeklyFee, #adminAddParentEmail, #adminAddParentPassword {
+  min-height: 44px;
+  font-size: 16px;
+  padding: 9px 11px;
+  box-sizing: border-box;
+}
+#modal .modal-card { width: min(760px, 94vw); }
+#adminAddStudentId, #adminAddStudentName, #adminAddStudentGrade,
+#adminAddStudentRole, #adminAddStudentWeeklyFee, #adminAddParentEmail, #adminAddParentPassword {
+  min-width: 180px;
+}
+@media (max-width: 900px){
+  #adminAddStudentId, #adminAddStudentName, #adminAddStudentGrade,
+  #adminAddStudentRole, #adminAddStudentWeeklyFee, #adminAddParentEmail, #adminAddParentPassword {
+    width: 100% !important;
+    min-width: 0;
+  }
+}
+
+/* Polished student/parent management controls */
+#studentsList table{width:100%;border-collapse:separate;border-spacing:0 6px;}
+#studentsList th{padding:9px 10px;font-size:12px;text-align:left;}
+#studentsList td{padding:10px;background:#fff;vertical-align:middle;border-top:1px solid #e5e9f0;border-bottom:1px solid #e5e9f0;}
+#studentsList td:first-child{border-left:1px solid #e5e9f0;border-radius:9px 0 0 9px;}
+#studentsList td:last-child{border-right:1px solid #e5e9f0;border-radius:0 9px 9px 0;}
+.student-actions{width:1%;min-width:430px;white-space:normal;text-align:right;}
+.student-actions .smallbtn{margin:2px 0 2px 4px;min-width:58px;}
+.student-actions .danger-btn{border-color:#e7b7b7;}
+.person-type{display:inline-block;padding:3px 8px;border-radius:999px;font-size:11px;font-weight:700;}
+.person-type.parent{background:#eee8ff;color:#6341a5;}
+.person-type.student{background:#e9f2ff;color:#2b63a5;}
+.parent-btn{font-weight:700;}
+#adminAddStudentId,#adminAddStudentName,#adminAddStudentGrade,#adminAddStudentRole,#adminAddStudentWeeklyFee,#adminAddParentEmail,#adminAddParentPassword{
+  min-height:46px!important;height:46px!important;padding:10px 12px!important;font-size:15px!important;border:1px solid #cfd7e3!important;border-radius:9px!important;background:#fff!important;box-sizing:border-box!important;
+}
+#adminAddStudentName{min-width:240px;}
+#adminAddParentEmail,#adminAddParentPassword{min-width:240px;}
+#adminAddStudentId{min-width:190px;}
+#adminAddStudentGrade{min-width:130px;}
+#adminAddStudentRole{min-width:150px;}
+#adminAddStudentWeeklyFee{min-width:160px;}
+#adminAddStudentId:focus,#adminAddStudentName:focus,#adminAddStudentGrade:focus,#adminAddStudentRole:focus,#adminAddStudentWeeklyFee:focus,#adminAddParentEmail:focus,#adminAddParentPassword:focus{outline:none;border-color:#6d8fc7!important;box-shadow:0 0 0 3px rgba(77,112,174,.12);}
+@media(max-width:1050px){
+  #adminAddStudentId,#adminAddStudentName,#adminAddStudentGrade,#adminAddStudentRole,#adminAddStudentWeeklyFee,#adminAddParentEmail,#adminAddParentPassword{width:100%!important;min-width:0;}
+  #adminAddStudentId,#adminAddStudentName,#adminAddStudentGrade,#adminAddStudentRole,#adminAddStudentWeeklyFee,#adminAddParentEmail,#adminAddParentPassword{margin-top:6px;}
+  .student-actions{min-width:280px;}
+}
+
+
+/* In-place assignment dialogs */
+.assignment-modal{
+  position:fixed; inset:0; z-index:17000; display:flex; align-items:center;
+  justify-content:center; padding:18px; background:rgba(12,22,44,.48);
+}
+.assignment-modal-card{
+  width:min(540px,96vw); max-height:90vh; overflow:auto; box-sizing:border-box;
+  padding:22px; background:#fff; border-radius:14px;
+  box-shadow:0 20px 70px rgba(10,20,40,.28);
+}
+.assignment-modal-heading{
+  display:flex; align-items:flex-start; justify-content:space-between; gap:14px;
+  margin-bottom:14px;
+}
+.assignment-modal-heading h3{margin:0 0 6px;font-size:20px;color:var(--accent)}
+.assignment-modal-heading p{margin:0;line-height:1.45}
+.assignment-modal-card input,.assignment-modal-card select{
+  width:100%; min-height:44px; box-sizing:border-box; font-size:16px;
+}
+.assignment-modal-actions{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:18px}
+.assign-book-message{min-height:18px;margin-top:10px}
+.assign-book-message.error{color:var(--danger)}
+@media(max-width:600px){
+  .assignment-modal-card{padding:16px}
+  .assignment-modal-heading{flex-direction:column}
+}
+
+
+/* Administrator UX: guided people management */
+.admin-people-actions{display:flex;gap:10px;flex-wrap:wrap;margin:12px 0 16px}
+.admin-people-actions button{min-height:44px;padding:10px 16px}
+.admin-form-card label{display:block;font-weight:600;margin:12px 0 5px}
+.admin-form-card input,.admin-form-card select{width:100%;min-height:44px;box-sizing:border-box;font-size:16px;padding:10px;border:1px solid #cbd5e1;border-radius:8px}
+.admin-form-card select[multiple]{height:auto;min-height:130px}
+.admin-form-card .small{line-height:1.45}
+.admin-form-card [role="status"]{margin-top:12px;min-height:18px}
+#adminLegacyStudentFields{display:none!important}
+@media(max-width:600px){
+  .admin-people-actions{display:grid;grid-template-columns:1fr}
+  .admin-form-card{padding:16px}
+}
+
+
+/* Administrator sections open in a focused dialog instead of the page flow */
+.admin-section-modal-backdrop{position:fixed;inset:0;z-index:12000;background:rgba(15,23,42,.52);backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box}
+.admin-section-modal-window{width:min(1120px,100%);max-height:90vh;background:#f7f9fc;border:1px solid #dbe3ef;border-radius:14px;box-shadow:0 24px 70px rgba(0,0,0,.24);display:flex;flex-direction:column;overflow:hidden}
+.admin-section-modal-header{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:16px 20px;background:#fff;border-bottom:1px solid #e6ebf2}
+.admin-section-modal-header h2{font-size:21px;margin:3px 0 0;color:#172b4d}
+.admin-section-modal-body{padding:16px;overflow:auto}
+.admin-section-modal-content{display:block!important;margin:0!important;width:100%;box-sizing:border-box}
+body.admin-modal-open{overflow:hidden}
+@media(max-width:600px){.admin-section-modal-backdrop{padding:0}.admin-section-modal-window{width:100%;height:100%;max-height:100vh;border-radius:0}.admin-section-modal-header{padding:13px 15px}.admin-section-modal-body{padding:10px}}
+
+/* ===== LibraryZone administrator dashboard: polished layout ===== */
+#adminDashboard.admin-dashboard-clean {
+  display: none;
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0 0 18px;
+  padding: 28px;
+  border: 1px solid #e0e7f0;
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 8px 28px rgba(25, 45, 75, .07);
+  color: #182b49;
+}
+#adminDashboard .admin-clean-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 22px;
+  border-bottom: 1px solid #e9eef5;
+}
+#adminDashboard .admin-eyebrow {
+  margin-bottom: 7px;
+  color: #5577ad;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+#adminDashboard .admin-clean-heading h2 {
+  margin: 0;
+  color: #172b4d;
+  font-size: clamp(24px, 2.2vw, 32px);
+  line-height: 1.2;
+  letter-spacing: -.025em;
+}
+#adminDashboard .admin-clean-heading p {
+  margin: 8px 0 0;
+  color: #718096;
+  font-size: 14px;
+}
+#adminDashboard .admin-clean-logout {
+  flex: 0 0 auto;
+  min-height: 40px;
+  padding: 9px 15px;
+}
+#adminDashboard .admin-clean-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin: 22px 0 30px;
+}
+#adminDashboard .admin-clean-metric {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 19px 20px;
+  border: 1px solid #e4eaf3;
+  border-radius: 13px;
+  background: #f8faff;
+}
+#adminDashboard .admin-clean-metric span {
+  color: #65758d;
+  font-size: 13px;
+  font-weight: 600;
+}
+#adminDashboard .admin-clean-metric strong {
+  color: #203d68;
+  font-size: clamp(25px, 2.2vw, 32px);
+  font-weight: 750;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+#adminDashboard .admin-clean-section { margin-top: 26px; }
+#adminDashboard .admin-clean-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 13px;
+}
+#adminDashboard .admin-clean-section-heading h3 {
+  margin: 0;
+  color: #203452;
+  font-size: 17px;
+  font-weight: 750;
+}
+#adminDashboard .admin-clean-section-heading > span {
+  color: #8794a8;
+  font-size: 12px;
+}
+#adminDashboard .admin-clean-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+#adminDashboard .admin-clean-actions button {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-width: 0;
+  min-height: 78px;
+  padding: 15px 17px;
+  border: 1px solid #dfe7f2;
+  border-radius: 12px;
+  background: #fff;
+  color: #233b5d;
+  text-align: left;
+  white-space: normal;
+  box-shadow: none;
+  transition: background .15s ease, border-color .15s ease, transform .15s ease;
+}
+#adminDashboard .admin-clean-actions button:hover {
+  border-color: #a9bfdf;
+  background: #f8faff;
+  transform: translateY(-1px);
+}
+#adminDashboard .admin-action-symbol {
+  display: grid;
+  flex: 0 0 38px;
+  width: 38px;
+  height: 38px;
+  place-items: center;
+  border-radius: 10px;
+  background: #eaf1fc;
+  color: #2d64ad;
+  font-size: 24px;
+  line-height: 1;
+}
+#adminDashboard .admin-clean-actions button > span:last-child {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  min-width: 0;
+}
+#adminDashboard .admin-clean-actions b {
+  display: block;
+  color: #203452;
+  font-size: 14px;
+  line-height: 1.3;
+}
+#adminDashboard .admin-clean-actions small {
+  display: block;
+  color: #77869b;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+#adminDashboard .admin-clean-tools {
+  padding-top: 24px;
+  border-top: 1px solid #e9eef5;
+}
+#adminDashboard .admin-clean-management {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+#adminDashboard .admin-clean-management button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+  padding: 12px 14px;
+  border: 1px solid #e0e7f0;
+  border-radius: 10px;
+  background: #fff;
+  color: #2b4568;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: left;
+  white-space: normal;
+  box-shadow: none;
+  transition: background .15s ease, border-color .15s ease;
+}
+#adminDashboard .admin-clean-management button:hover {
+  border-color: #b7c9e3;
+  background: #f7faff;
+}
+#adminDashboard .admin-clean-management button span {
+  flex: 0 0 auto;
+  color: #8da0ba;
+  font-size: 21px;
+  line-height: 1;
+}
+@media (max-width: 900px) {
+  #adminDashboard.admin-dashboard-clean { padding: 22px; }
+  #adminDashboard .admin-clean-management { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #adminDashboard .admin-clean-metrics { gap: 10px; }
+}
+@media (max-width: 600px) {
+  #adminDashboard.admin-dashboard-clean { padding: 16px; border-radius: 13px; }
+  #adminDashboard .admin-clean-heading { gap: 10px; }
+  #adminDashboard .admin-clean-heading h2 { font-size: 23px; }
+  #adminDashboard .admin-clean-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin: 17px 0 24px; }
+  #adminDashboard .admin-clean-metric { padding: 14px; }
+  #adminDashboard .admin-clean-actions, #adminDashboard .admin-clean-management { grid-template-columns: 1fr; }
+  #adminDashboard .admin-clean-section-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
+}
+
+
+/* Legacy admin cards are hidden by role/navigation JavaScript, not CSS !important. */
+
+
+/* Student landing page: warm, clear, and responsive. */
+.student-welcome{
+  position:relative;
+  overflow:hidden;
+  min-height:540px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  text-align:center;
+  padding:42px clamp(20px,4vw,58px);
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(82,139,246,.12), transparent 48%),
+    linear-gradient(145deg,#ffffff 0%,#f8faff 100%);
+  border:1px solid #dce6f7;
+  box-shadow:0 16px 44px rgba(31,65,120,.08);
+}
+.student-welcome-content{width:min(100%,650px);margin:auto;position:relative;z-index:1}
+.student-welcome-logo{display:block;width:min(100%,330px);height:145px;object-fit:contain;margin:0 auto 8px}
+.student-welcome-eyebrow{font-size:11px;font-weight:800;letter-spacing:.19em;color:#3976d7;margin:4px 0 12px}
+.student-welcome h2{font-size:clamp(28px,3.2vw,40px);line-height:1.12;letter-spacing:-.035em;color:#17345f;margin:0 0 10px}
+.student-welcome-lead{font-size:17px;line-height:1.55;color:#687a96;margin:0 0 28px}
+.student-welcome-instruction{display:flex;align-items:center;gap:18px;text-align:left;padding:20px 22px;background:#fff;border:1px solid #dce7f8;border-radius:17px;box-shadow:0 8px 22px rgba(32,73,137,.06)}
+.student-scan-icon{width:64px;height:64px;flex:0 0 64px;border-radius:15px;background:#eaf2ff;color:#2c6cce;display:grid;place-items:center}
+.student-scan-icon svg{width:43px;height:43px}
+.student-welcome-instruction h3{font-size:18px;line-height:1.3;color:#17345f;margin:0 0 6px}
+.student-welcome-instruction p{font-size:14px;line-height:1.55;color:#65758d;margin:0}
+.student-welcome-next{display:grid;grid-template-columns:34px 1fr;gap:14px 12px;text-align:left;max-width:490px;margin:25px auto 0;align-items:center}
+.welcome-step-number{display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:#e9f1ff;color:#2867c4;font-size:14px;font-weight:800}
+.student-welcome-next b{display:block;font-size:13px;color:#243f68;margin-bottom:3px}
+.student-welcome-next small{display:block;font-size:12px;color:#73829a;line-height:1.4}
+@media(max-width:900px){
+  .student-welcome{min-height:0;padding:32px 22px}
+  .student-welcome-logo{height:115px;width:min(100%,280px)}
+}
+@media(max-width:520px){
+  .student-welcome{padding:27px 16px;border-radius:14px}
+  .student-welcome-lead{font-size:15px;margin-bottom:20px}
+  .student-welcome-instruction{padding:16px;gap:12px;align-items:flex-start}
+  .student-scan-icon{width:48px;height:48px;flex-basis:48px;border-radius:12px}
+  .student-scan-icon svg{width:33px;height:33px}
+  .student-welcome-instruction h3{font-size:16px}
+  .student-welcome-instruction p{font-size:13px}
+}
+
+/* Animated transition into Administrator mode */
+.admin-entry-loading{position:fixed;inset:0;z-index:25000;display:flex;align-items:center;justify-content:center;padding:24px;box-sizing:border-box;background:linear-gradient(135deg,rgba(239,245,255,.98),rgba(248,250,255,.99));backdrop-filter:blur(8px)}
+.admin-entry-loading-card{width:min(440px,100%);padding:42px 30px 36px;text-align:center;background:#fff;border:1px solid #dce6f7;border-radius:24px;box-shadow:0 24px 80px rgba(35,75,145,.16);animation:adminEntryCardIn .45s ease-out both}
+.admin-entry-logo-wrap{width:112px;height:112px;margin:0 auto 22px;border-radius:26px;display:grid;place-items:center;background:linear-gradient(145deg,#edf4ff,#dce9ff);box-shadow:0 8px 26px rgba(46,104,211,.12);animation:adminLogoFloat 1.8s ease-in-out infinite}
+.admin-entry-logo{width:82px;height:82px;object-fit:contain;animation:adminLogoPulse 1.8s ease-in-out infinite}
+.admin-entry-spinner{width:28px;height:28px;margin:0 auto 18px;border:3px solid #dce7fb;border-top-color:#2f6ce5;border-radius:50%;animation:adminEntrySpin .8s linear infinite}
+.admin-entry-loading h2{margin:0 0 9px;color:#173665;font-size:25px;letter-spacing:-.4px}
+.admin-entry-loading p{margin:0;color:#71819a;font-size:15px}
+@keyframes adminEntrySpin{to{transform:rotate(360deg)}}@keyframes adminLogoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}@keyframes adminLogoPulse{0%,100%{transform:scale(1);filter:drop-shadow(0 0 0 rgba(47,108,229,0))}50%{transform:scale(1.06);filter:drop-shadow(0 5px 8px rgba(47,108,229,.22))}}@keyframes adminEntryCardIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.admin-entry-logo-wrap,.admin-entry-logo,.admin-entry-spinner,.admin-entry-loading-card{animation:none!important}}
+
+/* Text-based LibraryZone branding: no white logo image assets */
+.libraryzone-text-mark{
+  display:inline-grid;place-items:center;width:54px;height:54px;flex:0 0 54px;
+  border-radius:13px;background:linear-gradient(140deg,#2f6ce5,#79a5ff);
+  color:#fff;font-weight:800;font-size:20px;letter-spacing:-1px;
+  box-shadow:0 6px 18px rgba(47,108,229,.18)
+}
+.admin-entry-logo-text{
+  display:grid;place-items:center;width:82px;height:82px;border-radius:20px;
+  background:linear-gradient(140deg,#2f6ce5,#79a5ff);color:#fff;
+  font-size:31px;font-weight:800;letter-spacing:-1.5px;
+  box-shadow:0 8px 24px rgba(47,108,229,.24)
+}
+
+/* LibraryZone supplied logo and configurable school identity */
+.lz-school-logo{width:54px;height:54px;object-fit:contain;display:block;flex:0 0 54px}
+.student-welcome-logo{display:block;width:min(230px,60%);height:145px;object-fit:contain;margin:0 auto 10px}
+.school-name-display{font-size:13px;font-weight:700;color:#42618e;margin-top:2px}
+.shared-parent-fee-note{padding:11px 13px;border:1px solid var(--line);border-radius:9px;background:#f4f7fc;color:var(--muted);font-size:13px;line-height:1.5}
+.shared-parent-fee-note strong{color:var(--ink)}
+#cfg_school_name{width:100%}
+@media(max-width:600px){.lz-school-logo{width:42px;height:42px;flex-basis:42px}.student-welcome-logo{height:125px}}
+
+/* LibraryZone reading insights dashboard */
+.lz-stats-heading{display:flex;justify-content:space-between;align-items:center;gap:16px;margin:0 0 18px}
+.lz-live-pill{display:inline-flex;align-items:center;gap:8px;background:#eefbf4;color:#18794e;border:1px solid #c8f0d8;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:700;white-space:nowrap}
+.lz-live-pill span{width:8px;height:8px;border-radius:50%;background:#22a06b;box-shadow:0 0 0 4px #d8f6e5}
+.lz-insights-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:16px 0}
+.lz-insight-card,.lz-collection-card{border:1px solid #e1e9f6;border-radius:16px;padding:16px;background:linear-gradient(145deg,#fff,#f7faff);min-width:0}
+.lz-insight-top{display:flex;align-items:center;gap:8px}.lz-insight-icon{width:34px;height:34px;display:grid;place-items:center;background:#eaf1ff;border-radius:11px;font-size:18px}
+.lz-insight-label{color:#657894;font-size:12px;font-weight:650}.lz-insight-value{display:block;font-size:30px;line-height:1.2;color:#18365f;margin:13px 0 6px}
+.lz-insight-note{font-size:12px;color:#71819a;line-height:1.4}.lz-collection-card{grid-column:1/-1;background:#fff}
+.lz-collection-top,.lz-collection-foot{display:flex;justify-content:space-between;align-items:center;gap:12px}.lz-collection-top>strong{font-size:23px;color:#285fd5}
+.lz-progress-track{height:9px;background:#e9eef7;border-radius:999px;overflow:hidden;margin-top:10px}.lz-progress-track>span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,#3775eb,#8260c6);transition:width .35s ease}
+.lz-collection-foot{font-size:12px;color:#7b8aa3;margin-top:9px}.lz-stat-actions{display:flex;flex-wrap:wrap;gap:9px;margin:15px 0}
+.lz-student-section-title{display:flex;justify-content:space-between;align-items:center;gap:12px}.lz-student-section-title strong{display:block;font-size:18px}
+.lz-kicker{display:block;color:#3970d8;font-size:10px;font-weight:800;letter-spacing:1.8px;margin-bottom:5px}.lz-book-emoji{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:#edf3ff;font-size:23px}
+.lz-student-hello{display:flex;justify-content:space-between;align-items:center;gap:14px;padding:18px;border-radius:17px;background:linear-gradient(125deg,#edf4ff,#f8f4ff);border:1px solid #e0e8fb}
+.lz-student-hello h3{margin:0 0 6px;color:#18365f;font-size:20px}.lz-student-hello p{margin:0;color:#6d7e99;font-size:13px;line-height:1.5}
+.lz-student-avatar{width:60px;height:60px;flex:0 0 60px;display:grid;place-items:center;border-radius:19px;background:#fff;box-shadow:0 5px 18px #294d8815;font-size:31px}
+.lz-student-metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin:12px 0}.lz-student-metric{padding:13px 10px;border:1px solid #e3eaf6;border-radius:14px;background:#fff;min-width:0}
+.lz-student-metric>span{display:block;font-size:18px;margin-bottom:7px}.lz-student-metric strong{display:block;font-size:23px;color:#1d3c68;line-height:1.15;overflow-wrap:anywhere}.lz-student-metric small{display:block;color:#7888a1;font-size:11px;margin-top:5px}
+.lz-milestone{border:1px solid #e3eaf6;border-radius:15px;padding:15px;margin:12px 0;background:#fff}.lz-milestone-heading{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.lz-milestone-heading strong{display:block;color:#243e67}.lz-milestone-count{font-size:11px;color:#6d7e99;text-align:right}.lz-milestone>p{font-size:12px;color:#6f8098;margin:9px 0}
+.lz-badges{display:flex;gap:7px;flex-wrap:wrap;margin-top:12px}.lz-badge{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:6px 9px;background:#f2f4f8;color:#8b96a8;font-size:10px;font-weight:700}.lz-badge.earned{background:#e9f8ef;color:#18794e}
+.lz-student-columns{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:12px 0}.lz-student-subcard{border:1px solid #e3eaf6;border-radius:15px;padding:14px;background:#fff;min-width:0}
+.lz-student-subcard>strong{display:block;margin-bottom:12px;color:#263e64}.lz-level-row{margin:10px 0}.lz-level-row>div:first-child{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:#647791}.lz-level-row .lz-progress-track{height:6px;margin-top:6px}
+.lz-checkin{display:flex;gap:10px;align-items:flex-start;border-radius:12px;padding:11px}.lz-checkin>span{font-size:21px}.lz-checkin b{display:block;font-size:12px;color:#25446d}.lz-checkin p{font-size:11px;line-height:1.5;color:#71819a;margin:4px 0 0}.lz-checkin.positive{background:#eefaf3}.lz-checkin.needs-attention{background:#fff5eb}
+.lz-recent-heading{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:17px 0 9px}.lz-recent-heading>strong{color:#243e67}.lz-recent-heading>span{font-size:11px;color:#7b8aa3}
+.lz-recent-list{display:flex;flex-direction:column;gap:7px}.lz-recent-book{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid #e8edf5;border-radius:12px;background:#fff;min-width:0}
+.lz-recent-icon{width:34px;height:34px;flex:0 0 34px;border-radius:10px;background:#eef3ff;display:grid;place-items:center;color:#26744d;font-weight:800}.lz-recent-info{min-width:0;flex:1}
+.lz-recent-info strong{display:block;color:#243e67;font-size:12px;overflow-wrap:anywhere}.lz-recent-info small{display:block;color:#8290a5;font-size:10px;margin-top:3px}
+.lz-status{font-size:10px;font-weight:750;padding:5px 7px;border-radius:999px;white-space:nowrap}.lz-status.returned{background:#e8f8ef;color:#18794e}.lz-status.reading{background:#edf3ff;color:#2e61c5}.lz-status.late{background:#fff0e7;color:#b54708}
+.lz-empty-reading{padding:18px;text-align:center;background:#f7f9fd;border:1px dashed #d7e1f2;border-radius:13px;color:#74839b;font-size:13px}
+@media(max-width:900px){.lz-insights-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lz-student-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:560px){.lz-stats-heading{align-items:flex-start;flex-direction:column}.lz-student-columns{grid-template-columns:1fr}.lz-collection-foot{align-items:flex-start;flex-direction:column}.lz-recent-book{flex-wrap:wrap}.lz-status{margin-left:44px}}
+
+/* Keep the student's progress dashboard in the same branded side panel as the welcome screen. */
+#studentWelcome.lz-student-is-logged-in .student-welcome-content > :not(#studentHistoryBox):not(#studentWelcomeTitle):not(.student-welcome-lead){display:none!important}
+#studentWelcome.lz-student-is-logged-in #studentWelcomeTitle{display:block!important;margin:0 0 6px}
+#studentWelcome.lz-student-is-logged-in .student-welcome-lead{display:block!important;margin:0 0 14px}
+#studentWelcome.lz-student-is-logged-in{padding:18px}
+#studentWelcome .lz-welcome-progress{width:100%;text-align:left}
+#studentWelcome .lz-student-hello{margin-bottom:12px}
+#studentWelcome .lz-student-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}
+#studentWelcome .lz-student-hello h3{font-size:20px}
+@media(min-width:1100px){#studentWelcome .lz-student-columns{grid-template-columns:1fr}}
+
+/* Minimal, text-first dashboard: remove decorative icon elements */
+.lz-insight-icon,.lz-student-avatar,.lz-book-emoji,.lz-recent-icon{display:none!important}
+.lz-insight-top{gap:0}
+.lz-insight-value{margin-top:18px}
+.lz-student-metric>span{display:none}
+.lz-recent-book{gap:12px}
